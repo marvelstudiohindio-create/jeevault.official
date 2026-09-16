@@ -27,10 +27,19 @@ import {
   ArrowUp,
   ArrowDown,
   FolderPlus,
+  Copy,
+  Image as ImageIcon,
+  Lightbulb,
+  X,
+  AlertTriangle,
+  CheckSquare,
+  Square,
+  RotateCcw,
 } from 'lucide-react';
-import { Question, SubjectId, ExamCategory, QuestionLevel, StudyPDF } from '../types';
+import { Question, SubjectId, ExamCategory, QuestionLevel, Difficulty, StudyPDF } from '../types';
 import { CHAPTERS_DATA } from '../lib/mockData';
-import { uploadPdfToSupabase } from '../lib/supabase';
+import { uploadPdfToSupabase, normalizeChapterName } from '../lib/supabase';
+import { MathRenderer } from './MathRenderer';
 
 export const AdminDashboard: React.FC = () => {
   const {
@@ -40,6 +49,7 @@ export const AdminDashboard: React.FC = () => {
     reorderChapter,
     questions,
     addQuestion,
+    updateQuestion,
     deleteQuestion,
     updateQuestionLocation,
     pdfs,
@@ -112,8 +122,21 @@ export const AdminDashboard: React.FC = () => {
   const [qSolution, setQSolution] = useState('');
   const [qPyqYear, setQPyqYear] = useState('');
 
-  // Search in questions
+  // Search & Detailed Filter States for questions
   const [qSearch, setQSearch] = useState('');
+  const [qFilterSubject, setQFilterSubject] = useState<SubjectId | 'All'>('All');
+  const [qFilterChapter, setQFilterChapter] = useState<string>('All');
+  const [qFilterLevel, setQFilterLevel] = useState<QuestionLevel | 'All'>('All');
+  const [qFilterExamCategory, setQFilterExamCategory] = useState<ExamCategory | 'All'>('All');
+  const [qFilterQuestionType, setQFilterQuestionType] = useState<string>('All');
+  const [qFilterStatus, setQFilterStatus] = useState<'All' | 'Published' | 'Draft'>('All');
+
+  // Question Management & Modals
+  const [viewingQuestion, setViewingQuestion] = useState<Question | null>(null);
+  const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
+  const [deleteConfirmQId, setDeleteConfirmQId] = useState<string | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [qActionMsg, setQActionMsg] = useState('');
 
   // PDF Form state with Hierarchical Structure: Subject -> Exam/PYQ -> Chapter -> Level
   const [isAddingPdf, setIsAddingPdf] = useState(false);
@@ -242,16 +265,112 @@ export const AdminDashboard: React.FC = () => {
     setEditingQId(null);
   };
 
-  const filteredQuestions = questions.filter(
-    (q) => {
-      const qSearchLower = (qSearch || '').toLowerCase();
-      return (
-        (q.questionText || '').toLowerCase().includes(qSearchLower) ||
-        (q.chapter || '').toLowerCase().includes(qSearchLower) ||
-        (q.subject || '').toLowerCase().includes(qSearchLower)
-      );
+  const handleCopyId = (id: string) => {
+    try {
+      navigator.clipboard.writeText(id);
+      setCopiedId(id);
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch {
+      // Fallback
     }
-  );
+  };
+
+  const handleToggleStatus = async (q: Question) => {
+    const currentStatus = (q as any).status || 'Published';
+    const newStatus = currentStatus === 'Draft' ? 'Published' : 'Draft';
+    await updateQuestion(q.id, { status: newStatus } as any);
+    setQActionMsg(`Question status updated to ${newStatus}`);
+    setTimeout(() => setQActionMsg(''), 3000);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteConfirmQId) return;
+    await deleteQuestion(deleteConfirmQId);
+    setDeleteConfirmQId(null);
+    if (viewingQuestion?.id === deleteConfirmQId) setViewingQuestion(null);
+    if (editingQuestion?.id === deleteConfirmQId) setEditingQuestion(null);
+    setQActionMsg('Question deleted from Vault.');
+    setTimeout(() => setQActionMsg(''), 3000);
+  };
+
+  const handleSaveQuestionEdits = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingQuestion) return;
+    await updateQuestion(editingQuestion.id, editingQuestion);
+    setQActionMsg(`Question updated successfully in Supabase Vault!`);
+    if (viewingQuestion?.id === editingQuestion.id) {
+      setViewingQuestion(editingQuestion);
+    }
+    setEditingQuestion(null);
+    setTimeout(() => setQActionMsg(''), 3500);
+  };
+
+  const resetQuestionFilters = () => {
+    setQSearch('');
+    setQFilterSubject('All');
+    setQFilterChapter('All');
+    setQFilterLevel('All');
+    setQFilterExamCategory('All');
+    setQFilterQuestionType('All');
+    setQFilterStatus('All');
+  };
+
+  // Available chapters based on selected subject for question filter dropdown
+  const availableFilterChapters = Array.from(
+    new Set([
+      ...(qFilterSubject === 'All'
+        ? (Object.values(chapters) as any[]).flatMap((chs: any) => (Array.isArray(chs) ? chs.map((c: any) => c.name) : []))
+        : ((chapters[qFilterSubject] || []) as any[]).map((c: any) => c.name)),
+      ...questions
+        .filter((q) => qFilterSubject === 'All' || q.subject === qFilterSubject)
+        .map((q) => q.chapter)
+        .filter(Boolean),
+    ])
+  ).sort();
+
+  const filteredQuestions = questions.filter((q) => {
+    // 1. Search Query across text, chapter, subject, ID, key formula, and solution
+    if (qSearch.trim()) {
+      const s = qSearch.toLowerCase().trim();
+      const matchText = (q.questionText || '').toLowerCase().includes(s);
+      const matchChapter = (q.chapter || '').toLowerCase().includes(s);
+      const matchSubject = (q.subject || '').toLowerCase().includes(s);
+      const matchId = (q.id || '').toLowerCase().includes(s);
+      const matchFormula = (q.keyFormula || '').toLowerCase().includes(s);
+      const matchSol = (q.solutionText || '').toLowerCase().includes(s);
+      if (!matchText && !matchChapter && !matchSubject && !matchId && !matchFormula && !matchSol) {
+        return false;
+      }
+    }
+
+    // 2. Subject filter
+    if (qFilterSubject !== 'All' && q.subject !== qFilterSubject) return false;
+
+    // 3. Chapter filter (normalized matching)
+    if (qFilterChapter !== 'All' && normalizeChapterName(q.chapter) !== normalizeChapterName(qFilterChapter)) {
+      return false;
+    }
+
+    // 4. Level filter
+    if (qFilterLevel !== 'All' && q.level !== qFilterLevel) return false;
+
+    // 5. Exam Category filter
+    if (qFilterExamCategory !== 'All' && q.examCategory !== qFilterExamCategory) return false;
+
+    // 6. Question Type filter
+    if (qFilterQuestionType !== 'All' && (q.questionType || 'Single Correct') !== qFilterQuestionType) {
+      return false;
+    }
+
+    // 7. Status filter
+    if (qFilterStatus !== 'All') {
+      const isDraft = (q as any).status === 'Draft';
+      if (qFilterStatus === 'Published' && isDraft) return false;
+      if (qFilterStatus === 'Draft' && !isDraft) return false;
+    }
+
+    return true;
+  });
 
   return (
     <div className="min-h-[calc(100vh-70px)] bg-[#0a0c20] text-white p-4 sm:p-8 font-sans">
@@ -810,25 +929,225 @@ export const AdminDashboard: React.FC = () => {
         {/* Tab 2: QUESTIONS MANAGEMENT */}
         {activeTab === 'questions' && (
           <div className="flex flex-col gap-6">
+            {/* Status notification toast */}
+            {qActionMsg && (
+              <div className="p-4 rounded-2xl bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 text-xs flex items-center justify-between shadow-lg animate-in fade-in">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span className="font-semibold">{qActionMsg}</span>
+                </div>
+                <button
+                  onClick={() => setQActionMsg('')}
+                  className="text-emerald-400 hover:text-emerald-200 cursor-pointer"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            {/* Header with Search & Primary Actions */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="relative w-full sm:w-80">
+              <div className="relative w-full sm:w-96">
                 <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
                 <input
                   type="text"
                   value={qSearch}
                   onChange={(e) => setQSearch(e.target.value)}
-                  placeholder="Search questions by text or chapter..."
-                  className="w-full pl-10 pr-4 py-2 rounded-xl bg-indigo-950/80 border border-indigo-800/60 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-cyan-400"
+                  placeholder="Search by text, ID, formula, chapter, or solution..."
+                  className="w-full pl-10 pr-10 py-2.5 rounded-xl bg-indigo-950/80 border border-indigo-800/60 text-xs text-white placeholder-slate-400 focus:outline-none focus:border-cyan-400 transition-colors"
                 />
+                {qSearch && (
+                  <button
+                    onClick={() => setQSearch('')}
+                    className="absolute right-3 top-3 text-slate-400 hover:text-white"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
 
-              <button
-                onClick={() => setIsAddingQuestion(!isAddingQuestion)}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:brightness-110 text-slate-950 font-extrabold text-xs shadow-md transition-all self-start sm:self-auto cursor-pointer"
-              >
-                <Plus className="w-4 h-4" />
-                <span>{isAddingQuestion ? 'Close Form' : 'Add New Question'}</span>
-              </button>
+              <div className="flex items-center gap-2.5 flex-wrap">
+                {(qSearch ||
+                  qFilterSubject !== 'All' ||
+                  qFilterChapter !== 'All' ||
+                  qFilterLevel !== 'All' ||
+                  qFilterExamCategory !== 'All' ||
+                  qFilterQuestionType !== 'All' ||
+                  qFilterStatus !== 'All') && (
+                  <button
+                    onClick={resetQuestionFilters}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-800 text-xs text-slate-300 hover:text-white transition-colors cursor-pointer"
+                    title="Reset all filters"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Clear Filters</span>
+                  </button>
+                )}
+
+                <button
+                  onClick={() => setIsAddingQuestion(!isAddingQuestion)}
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:brightness-110 text-slate-950 font-extrabold text-xs shadow-md transition-all self-start sm:self-auto cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>{isAddingQuestion ? 'Close Form' : 'Add New Question'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Filter Ribbon: Subject, Chapter, Level, Exam Category, Question Type, Status */}
+            <div className="p-4 rounded-2xl bg-indigo-950/40 border border-indigo-900/60 flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Filter className="w-4 h-4 text-cyan-400" />
+                  <span className="text-xs font-bold text-slate-300">Filter Question Bank</span>
+                </div>
+                <span className="text-[11px] font-mono text-cyan-300">
+                  Showing {filteredQuestions.length} of {questions.length} questions
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+                {/* Subject */}
+                <div>
+                  <label className="text-[10px] uppercase tracking-wider text-slate-400 font-bold block mb-1">
+                    Subject
+                  </label>
+                  <select
+                    value={qFilterSubject}
+                    onChange={(e) => {
+                      setQFilterSubject(e.target.value as any);
+                      setQFilterChapter('All');
+                    }}
+                    className="w-full px-2.5 py-1.5 rounded-lg bg-indigo-950 border border-indigo-800 text-xs text-white focus:outline-none focus:border-cyan-400 cursor-pointer"
+                  >
+                    <option value="All">All Subjects</option>
+                    <option value="Physics">Physics</option>
+                    <option value="Chemistry">Chemistry</option>
+                    <option value="Mathematics">Mathematics</option>
+                  </select>
+                </div>
+
+                {/* Chapter */}
+                <div>
+                  <label className="text-[10px] uppercase tracking-wider text-slate-400 font-bold block mb-1">
+                    Chapter
+                  </label>
+                  <select
+                    value={qFilterChapter}
+                    onChange={(e) => setQFilterChapter(e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded-lg bg-indigo-950 border border-indigo-800 text-xs text-white focus:outline-none focus:border-cyan-400 cursor-pointer truncate"
+                  >
+                    <option value="All">All Chapters</option>
+                    {availableFilterChapters.map((chName) => (
+                      <option key={chName} value={chName}>
+                        {chName}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Level */}
+                <div>
+                  <label className="text-[10px] uppercase tracking-wider text-slate-400 font-bold block mb-1">
+                    Level
+                  </label>
+                  <select
+                    value={qFilterLevel}
+                    onChange={(e) => setQFilterLevel(e.target.value as any)}
+                    className="w-full px-2.5 py-1.5 rounded-lg bg-indigo-950 border border-indigo-800 text-xs text-white focus:outline-none focus:border-cyan-400 cursor-pointer"
+                  >
+                    <option value="All">All Levels</option>
+                    <option value="Level 1">Level 1</option>
+                    <option value="Level 2">Level 2</option>
+                    <option value="Level 3">Level 3</option>
+                    <option value="JEEVault 50 Special">JEEVault 50 Special</option>
+                  </select>
+                </div>
+
+                {/* Exam Category */}
+                <div>
+                  <label className="text-[10px] uppercase tracking-wider text-slate-400 font-bold block mb-1">
+                    Exam Category
+                  </label>
+                  <select
+                    value={qFilterExamCategory}
+                    onChange={(e) => setQFilterExamCategory(e.target.value as any)}
+                    className="w-full px-2.5 py-1.5 rounded-lg bg-indigo-950 border border-indigo-800 text-xs text-white focus:outline-none focus:border-cyan-400 cursor-pointer"
+                  >
+                    <option value="All">All Categories</option>
+                    <option value="JEE Advanced">JEE Advanced</option>
+                    <option value="JEE Mains">JEE Mains</option>
+                    <option value="PYQ">PYQ</option>
+                  </select>
+                </div>
+
+                {/* Question Type */}
+                <div>
+                  <label className="text-[10px] uppercase tracking-wider text-slate-400 font-bold block mb-1">
+                    Type
+                  </label>
+                  <select
+                    value={qFilterQuestionType}
+                    onChange={(e) => setQFilterQuestionType(e.target.value)}
+                    className="w-full px-2.5 py-1.5 rounded-lg bg-indigo-950 border border-indigo-800 text-xs text-white focus:outline-none focus:border-cyan-400 cursor-pointer"
+                  >
+                    <option value="All">All Types</option>
+                    <option value="Single Correct">Single Correct</option>
+                    <option value="Multiple Correct">Multiple Correct</option>
+                    <option value="Integer Type">Integer Type</option>
+                    <option value="Comprehension">Comprehension</option>
+                  </select>
+                </div>
+
+                {/* Status */}
+                <div>
+                  <label className="text-[10px] uppercase tracking-wider text-slate-400 font-bold block mb-1">
+                    Status
+                  </label>
+                  <select
+                    value={qFilterStatus}
+                    onChange={(e) => setQFilterStatus(e.target.value as any)}
+                    className="w-full px-2.5 py-1.5 rounded-lg bg-indigo-950 border border-indigo-800 text-xs text-white focus:outline-none focus:border-cyan-400 cursor-pointer"
+                  >
+                    <option value="All">All Statuses</option>
+                    <option value="Published">Published</option>
+                    <option value="Draft">Draft</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Active Filter summary line */}
+              {(qFilterSubject !== 'All' ||
+                qFilterChapter !== 'All' ||
+                qFilterLevel !== 'All' ||
+                qFilterExamCategory !== 'All') && (
+                <div className="pt-2 border-t border-indigo-900/40 flex items-center gap-2 flex-wrap text-xs text-slate-300">
+                  <span className="text-slate-400 text-[11px]">Filtered:</span>
+                  {qFilterSubject !== 'All' && (
+                    <span className="px-2 py-0.5 rounded-md bg-cyan-950/80 border border-cyan-500/40 text-cyan-300 text-[11px] font-semibold">
+                      Subject: {qFilterSubject}
+                    </span>
+                  )}
+                  {qFilterChapter !== 'All' && (
+                    <span className="px-2 py-0.5 rounded-md bg-purple-950/80 border border-purple-500/40 text-purple-300 text-[11px] font-semibold">
+                      Chapter: {qFilterChapter}
+                    </span>
+                  )}
+                  {qFilterLevel !== 'All' && (
+                    <span className="px-2 py-0.5 rounded-md bg-fuchsia-950/80 border border-fuchsia-500/40 text-fuchsia-300 text-[11px] font-semibold">
+                      Level: {qFilterLevel}
+                    </span>
+                  )}
+                  {qFilterExamCategory !== 'All' && (
+                    <span className="px-2 py-0.5 rounded-md bg-blue-950/80 border border-blue-500/40 text-blue-300 text-[11px] font-semibold">
+                      Exam: {qFilterExamCategory}
+                    </span>
+                  )}
+                  <span className="text-emerald-400 font-bold ml-auto text-[11px]">
+                    {filteredQuestions.length} matching question{filteredQuestions.length === 1 ? '' : 's'}
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Add Question Form */}
@@ -1063,88 +1382,227 @@ export const AdminDashboard: React.FC = () => {
               </form>
             )}
 
-            {/* Questions Table */}
+            {/* Questions Table with Full Metadata & Status Toggle */}
             <div className="rounded-3xl bg-[#121438]/80 border-2 border-indigo-900/60 overflow-hidden shadow-xl">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-xs text-slate-200">
-                  <thead className="bg-[#0e102d] text-slate-400 uppercase font-mono border-b border-indigo-900/80">
+                  <thead className="bg-[#0e102d] text-slate-400 uppercase font-mono border-b border-indigo-900/80 text-[11px]">
                     <tr>
-                      <th className="p-4">Subject & Level</th>
-                      <th className="p-4">Chapter</th>
-                      <th className="p-4">Question Preview</th>
-                      <th className="p-4">Category</th>
-                      <th className="p-4 text-right">Actions</th>
+                      <th className="p-3.5">ID</th>
+                      <th className="p-3.5">Question Text / Preview</th>
+                      <th className="p-3.5">Subject</th>
+                      <th className="p-3.5">Chapter</th>
+                      <th className="p-3.5">Level & Difficulty</th>
+                      <th className="p-3.5">Exam Category</th>
+                      <th className="p-3.5">Type</th>
+                      <th className="p-3.5">Status</th>
+                      <th className="p-3.5">Diagrams</th>
+                      <th className="p-3.5">Created Date</th>
+                      <th className="p-3.5 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-indigo-950/60">
-                    {filteredQuestions.map((q) => (
-                      <tr key={q.id} className="hover:bg-indigo-950/40 transition-colors">
-                        <td className="p-4">
-                          <span className="font-bold text-cyan-300 block">{q.subject}</span>
-                          <span className="text-[10px] text-fuchsia-300 font-mono">{q.level}</span>
-                        </td>
-                        <td className="p-4 font-medium text-slate-300">
-                          {editingQId === q.id ? (
-                            <input
-                              type="text"
-                              value={editLocChapter}
-                              onChange={(e) => setEditLocChapter(e.target.value)}
-                              className="px-2 py-1 rounded bg-indigo-950 border border-cyan-400 text-xs"
-                            />
-                          ) : (
-                            q.chapter
-                          )}
-                        </td>
-                        <td className="p-4 max-w-xs truncate text-slate-300">
-                          {q.questionText}
-                        </td>
-                        <td className="p-4">
-                          <span className="px-2 py-0.5 rounded bg-indigo-950 border border-indigo-700/50 text-[10px] font-mono">
-                            {q.examCategory}
-                          </span>
-                        </td>
-                        <td className="p-4 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            {editingQId === q.id ? (
-                              <button
-                                onClick={() => handleSaveLocation(q.id)}
-                                className="px-2.5 py-1 rounded bg-emerald-500 text-slate-950 font-bold text-[10px]"
+                    {filteredQuestions.map((q) => {
+                      const hasQuestionImg = !!(q.imageUrl || (q.images && q.images.length > 0));
+                      const hasSolutionImg = !!(q.solutionImageUrl || (q.solutionImages && q.solutionImages.length > 0));
+                      const isPublished = (q as any).status !== 'Draft';
+                      const isCopied = copiedId === q.id;
+
+                      return (
+                        <tr key={q.id} className="hover:bg-indigo-950/40 transition-colors">
+                          {/* 1. Question ID with copy button */}
+                          <td className="p-3.5 align-top">
+                            <div className="flex items-center gap-1.5">
+                              <span
+                                className="font-mono text-[11px] text-slate-400 bg-slate-900/90 border border-slate-800 px-1.5 py-0.5 rounded"
+                                title={`Full ID: ${q.id}`}
                               >
-                                Save Location
-                              </button>
-                            ) : (
+                                {q.id.length > 10 ? `${q.id.slice(0, 8)}...` : q.id}
+                              </span>
                               <button
-                                onClick={() => {
-                                  setEditingQId(q.id);
-                                  setEditLocSubject(q.subject);
-                                  setEditLocChapter(q.chapter);
-                                  setEditLocLevel(q.level);
-                                }}
-                                className="p-1.5 rounded-lg text-slate-400 hover:text-cyan-300 hover:bg-indigo-900"
-                                title="Edit question location"
+                                onClick={() => handleCopyId(q.id)}
+                                className="p-1 rounded text-slate-500 hover:text-cyan-300 transition-colors cursor-pointer"
+                                title="Copy Question ID"
+                              >
+                                {isCopied ? (
+                                  <Check className="w-3 h-3 text-emerald-400" />
+                                ) : (
+                                  <Copy className="w-3 h-3" />
+                                )}
+                              </button>
+                            </div>
+                          </td>
+
+                          {/* 2. Question Preview */}
+                          <td className="p-3.5 align-top max-w-xs">
+                            {q.passage && (
+                              <span className="inline-block px-1.5 py-0.5 mb-1 rounded bg-amber-950/60 border border-amber-500/30 text-amber-300 text-[10px] font-mono">
+                                Passage Attached
+                              </span>
+                            )}
+                            <p className="line-clamp-2 text-slate-200 leading-relaxed font-medium">
+                              {q.questionText}
+                            </p>
+                          </td>
+
+                          {/* 3. Subject */}
+                          <td className="p-3.5 align-top">
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                                q.subject === 'Physics'
+                                  ? 'bg-cyan-950/70 border border-cyan-400/30 text-cyan-300'
+                                  : q.subject === 'Chemistry'
+                                  ? 'bg-violet-950/70 border border-violet-400/30 text-violet-300'
+                                  : 'bg-amber-950/70 border border-amber-400/30 text-amber-300'
+                              }`}
+                            >
+                              {q.subject}
+                            </span>
+                          </td>
+
+                          {/* 4. Chapter */}
+                          <td className="p-3.5 align-top font-medium text-slate-300 max-w-[180px]">
+                            {editingQId === q.id ? (
+                              <input
+                                type="text"
+                                value={editLocChapter}
+                                onChange={(e) => setEditLocChapter(e.target.value)}
+                                className="px-2 py-1 rounded bg-indigo-950 border border-cyan-400 text-xs w-full"
+                              />
+                            ) : (
+                              <span className="line-clamp-2">{q.chapter}</span>
+                            )}
+                          </td>
+
+                          {/* 5. Level & Difficulty */}
+                          <td className="p-3.5 align-top">
+                            <div className="flex flex-col gap-1 items-start">
+                              <span className="text-[10px] text-fuchsia-300 font-mono font-bold bg-fuchsia-950/60 border border-fuchsia-400/20 px-2 py-0.5 rounded">
+                                {q.level}
+                              </span>
+                              <span className="text-[9px] text-slate-400 font-medium">
+                                {q.difficulty || 'Standard'}
+                              </span>
+                            </div>
+                          </td>
+
+                          {/* 6. Exam Category */}
+                          <td className="p-3.5 align-top">
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
+                                q.examCategory === 'JEE Advanced'
+                                  ? 'bg-blue-950 border border-blue-600/40 text-blue-300'
+                                  : q.examCategory === 'PYQ'
+                                  ? 'bg-emerald-950 border border-emerald-600/40 text-emerald-300'
+                                  : 'bg-indigo-950 border border-indigo-700/50 text-indigo-200'
+                              }`}
+                            >
+                              {q.examCategory}
+                            </span>
+                          </td>
+
+                          {/* 7. Question Type */}
+                          <td className="p-3.5 align-top">
+                            <span className="text-[10px] font-mono text-slate-400 bg-slate-900/60 px-2 py-0.5 rounded border border-slate-800">
+                              {q.questionType || 'Single Correct'}
+                            </span>
+                          </td>
+
+                          {/* 8. Status with 1-click toggle */}
+                          <td className="p-3.5 align-top">
+                            <button
+                              onClick={() => handleToggleStatus(q)}
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold flex items-center gap-1 cursor-pointer transition-colors ${
+                                isPublished
+                                  ? 'bg-emerald-950/70 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-900/80'
+                                  : 'bg-amber-950/70 border border-amber-500/30 text-amber-300 hover:bg-amber-900/80'
+                              }`}
+                              title="Click to toggle status (Published / Draft)"
+                            >
+                              <span
+                                className={`w-1.5 h-1.5 rounded-full ${
+                                  isPublished ? 'bg-emerald-400' : 'bg-amber-400'
+                                }`}
+                              />
+                              <span>{isPublished ? 'Published' : 'Draft'}</span>
+                            </button>
+                          </td>
+
+                          {/* 9. Diagrams Indicators */}
+                          <td className="p-3.5 align-top">
+                            <div className="flex flex-col gap-1">
+                              {hasQuestionImg ? (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-cyan-300 bg-cyan-950/60 border border-cyan-400/20 px-1.5 py-0.5 rounded">
+                                  <ImageIcon className="w-3 h-3 text-cyan-400 shrink-0" />
+                                  <span>Question Fig</span>
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-slate-500">-</span>
+                              )}
+                              {hasSolutionImg && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-300 bg-amber-950/60 border border-amber-400/20 px-1.5 py-0.5 rounded">
+                                  <Lightbulb className="w-3 h-3 text-amber-400 shrink-0" />
+                                  <span>Solution Fig</span>
+                                </span>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* 10. Created Date */}
+                          <td className="p-3.5 align-top font-mono text-[10px] text-slate-400">
+                            {q.pyqYear || 'Sep 16, 2026'}
+                          </td>
+
+                          {/* 11. Actions */}
+                          <td className="p-3.5 align-top text-right">
+                            <div className="flex items-center justify-end gap-1.5">
+                              {/* View Details */}
+                              <button
+                                onClick={() => setViewingQuestion(q)}
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-cyan-300 hover:bg-indigo-900 transition-colors cursor-pointer"
+                                title="View full question & solution details"
+                              >
+                                <Eye className="w-3.5 h-3.5" />
+                              </button>
+
+                              {/* Edit Question */}
+                              <button
+                                onClick={() => setEditingQuestion(q)}
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-amber-300 hover:bg-indigo-900 transition-colors cursor-pointer"
+                                title="Edit Question"
                               >
                                 <Edit2 className="w-3.5 h-3.5" />
                               </button>
-                            )}
 
-                            <button
-                              onClick={() => deleteQuestion(q.id)}
-                              className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-indigo-900"
-                              title="Delete Question"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                    {questions.length === 0 && (
+                              {/* Delete Question with Confirmation */}
+                              <button
+                                onClick={() => setDeleteConfirmQId(q.id)}
+                                className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 hover:bg-indigo-900 transition-colors cursor-pointer"
+                                title="Delete Question from Supabase Vault"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+
+                    {filteredQuestions.length === 0 && (
                       <tr>
-                        <td colSpan={5} className="p-8 text-center text-slate-400">
-                          <p className="font-bold text-sm text-slate-300">No Questions in Database</p>
-                          <p className="text-xs text-slate-500 mt-1">
-                            Click "+ Add New Question" above to insert genuine questions into Supabase.
+                        <td colSpan={11} className="p-10 text-center text-slate-400">
+                          <p className="font-bold text-sm text-slate-300">
+                            No Questions Match the Selected Filters
                           </p>
+                          <p className="text-xs text-slate-500 mt-1">
+                            Try resetting your filters or search keywords.
+                          </p>
+                          <button
+                            onClick={resetQuestionFilters}
+                            className="mt-3 px-4 py-1.5 rounded-xl bg-indigo-900 hover:bg-indigo-800 text-cyan-300 text-xs font-semibold cursor-pointer"
+                          >
+                            Reset All Filters
+                          </button>
                         </td>
                       </tr>
                     )}
@@ -1152,6 +1610,555 @@ export const AdminDashboard: React.FC = () => {
                 </table>
               </div>
             </div>
+
+            {/* Modal 1: Question Details View Modal */}
+            {viewingQuestion && (
+              <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+                <div className="max-w-3xl w-full max-h-[90vh] overflow-y-auto bg-[#0d0f2a] border border-indigo-500/40 rounded-3xl p-6 sm:p-8 shadow-2xl flex flex-col gap-5 text-slate-200 animate-in fade-in">
+                  {/* Modal Header */}
+                  <div className="flex items-start justify-between border-b border-indigo-900/60 pb-4">
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                        <span className="px-2.5 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-400/30 text-xs font-bold">
+                          {viewingQuestion.subject}
+                        </span>
+                        <span className="px-2.5 py-0.5 rounded-full bg-blue-950 text-blue-300 border border-blue-400/30 text-xs font-mono font-bold">
+                          {viewingQuestion.examCategory}
+                        </span>
+                        <span className="px-2.5 py-0.5 rounded-full bg-fuchsia-950 text-fuchsia-300 border border-fuchsia-400/30 text-xs font-mono font-bold">
+                          {viewingQuestion.level}
+                        </span>
+                        <span className="px-2.5 py-0.5 rounded-full bg-indigo-950 text-indigo-300 border border-indigo-700/50 text-xs font-mono">
+                          {viewingQuestion.questionType || 'Single Correct'}
+                        </span>
+                      </div>
+                      <h3 className="text-lg font-black font-['Outfit'] text-white">
+                        {viewingQuestion.chapter}
+                      </h3>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-[11px] font-mono text-slate-400">
+                          ID: {viewingQuestion.id}
+                        </span>
+                        <button
+                          onClick={() => handleCopyId(viewingQuestion.id)}
+                          className="text-slate-400 hover:text-cyan-300"
+                          title="Copy ID"
+                        >
+                          <Copy className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setViewingQuestion(null)}
+                      className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-indigo-950 cursor-pointer"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  {/* Passage if present */}
+                  {viewingQuestion.passage && (
+                    <div className="p-4 rounded-2xl bg-amber-950/20 border border-amber-500/30 flex flex-col gap-2">
+                      <div className="flex items-center gap-1.5 text-amber-300 text-xs font-bold uppercase tracking-wider">
+                        <BookOpen className="w-3.5 h-3.5" />
+                        <span>Comprehension Passage</span>
+                      </div>
+                      <div className="text-xs text-slate-200 leading-relaxed">
+                        <MathRenderer text={viewingQuestion.passage} />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Question Statement */}
+                  <div className="flex flex-col gap-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                      Problem Statement
+                    </span>
+                    <div className="p-4 rounded-2xl bg-indigo-950/50 border border-indigo-900/60 text-sm sm:text-base text-white leading-relaxed">
+                      <MathRenderer text={viewingQuestion.questionText} />
+                    </div>
+                  </div>
+
+                  {/* Question Diagram(s) */}
+                  {(viewingQuestion.imageUrl ||
+                    (viewingQuestion.images && viewingQuestion.images.length > 0)) && (
+                    <div className="flex flex-col gap-2">
+                      <span className="text-xs font-bold uppercase tracking-wider text-cyan-300 flex items-center gap-1.5">
+                        <ImageIcon className="w-3.5 h-3.5" />
+                        <span>Question Figure & Diagrams</span>
+                      </span>
+                      <div className="p-3 rounded-2xl bg-slate-950 border border-indigo-900/60 flex flex-col items-center gap-3">
+                        {viewingQuestion.imageUrl && (
+                          <div className="relative group max-h-72 overflow-hidden rounded-xl bg-white/5 p-2">
+                            <img
+                              src={viewingQuestion.imageUrl}
+                              alt="Question Diagram"
+                              className="max-h-64 object-contain rounded-lg"
+                            />
+                            <a
+                              href={viewingQuestion.imageUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="absolute top-3 right-3 p-1.5 rounded-lg bg-black/70 text-cyan-300 hover:text-white"
+                              title="Open original image"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5" />
+                            </a>
+                          </div>
+                        )}
+                        {viewingQuestion.images &&
+                          viewingQuestion.images
+                            .filter((img) => img !== viewingQuestion.imageUrl)
+                            .map((imgUrl, i) => (
+                              <div key={i} className="relative group max-h-72 overflow-hidden rounded-xl bg-white/5 p-2">
+                                <img
+                                  src={imgUrl}
+                                  alt={`Diagram ${i + 2}`}
+                                  className="max-h-64 object-contain rounded-lg"
+                                />
+                                <a
+                                  href={imgUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="absolute top-3 right-3 p-1.5 rounded-lg bg-black/70 text-cyan-300 hover:text-white"
+                                >
+                                  <ExternalLink className="w-3.5 h-3.5" />
+                                </a>
+                              </div>
+                            ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Options */}
+                  <div className="flex flex-col gap-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                      Options & Verified Answer
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {viewingQuestion.options.map((opt, idx) => {
+                        const isCorrect =
+                          idx === viewingQuestion.correctOptionIndex ||
+                          (viewingQuestion.correctOptionIndices &&
+                            viewingQuestion.correctOptionIndices.includes(idx));
+
+                        return (
+                          <div
+                            key={idx}
+                            className={`p-3 rounded-xl border flex items-start gap-2.5 text-xs ${
+                              isCorrect
+                                ? 'bg-emerald-950/60 border-emerald-400/50 text-white font-medium shadow-sm'
+                                : 'bg-indigo-950/30 border-indigo-900/40 text-slate-300'
+                            }`}
+                          >
+                            <span
+                              className={`w-5 h-5 rounded-md flex items-center justify-center font-bold text-[10px] shrink-0 ${
+                                isCorrect
+                                  ? 'bg-emerald-400 text-slate-950'
+                                  : 'bg-indigo-900 text-slate-400'
+                              }`}
+                            >
+                              {String.fromCharCode(65 + idx)}
+                            </span>
+                            <div className="flex-1">
+                              <MathRenderer text={opt} />
+                            </div>
+                            {isCorrect && (
+                              <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-wider shrink-0">
+                                Correct
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                    {viewingQuestion.integerAnswer !== undefined && (
+                      <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-500/40 text-xs text-emerald-300 font-bold">
+                        Integer Answer: {viewingQuestion.integerAnswer}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Key Formula */}
+                  {viewingQuestion.keyFormula && (
+                    <div className="p-4 rounded-2xl bg-cyan-950/30 border border-cyan-500/30 flex flex-col gap-1.5">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-cyan-300 flex items-center gap-1.5">
+                        <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                        <span>Core Physical Formula & Identity</span>
+                      </span>
+                      <div className="text-xs text-cyan-100 font-mono">
+                        <MathRenderer text={viewingQuestion.keyFormula} />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Stepwise Solution */}
+                  {viewingQuestion.solutionText && (
+                    <div className="p-4 rounded-2xl bg-indigo-950/40 border border-indigo-800/60 flex flex-col gap-2">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                        <Lightbulb className="w-3.5 h-3.5 text-amber-400" />
+                        <span>Detailed Step-by-Step Solution</span>
+                      </span>
+                      <div className="text-xs text-slate-200 leading-relaxed">
+                        <MathRenderer text={viewingQuestion.solutionText} />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Solution Diagram(s) */}
+                  {(viewingQuestion.solutionImageUrl ||
+                    (viewingQuestion.solutionImages && viewingQuestion.solutionImages.length > 0)) && (
+                    <div className="flex flex-col gap-2">
+                      <span className="text-xs font-bold uppercase tracking-wider text-amber-300 flex items-center gap-1.5">
+                        <Lightbulb className="w-3.5 h-3.5" />
+                        <span>Solution Diagrams & Graphs</span>
+                      </span>
+                      <div className="p-3 rounded-2xl bg-slate-950 border border-indigo-900/60 flex flex-col items-center gap-3">
+                        {viewingQuestion.solutionImageUrl && (
+                          <img
+                            src={viewingQuestion.solutionImageUrl}
+                            alt="Solution Diagram"
+                            className="max-h-64 object-contain rounded-lg"
+                          />
+                        )}
+                        {viewingQuestion.solutionImages &&
+                          viewingQuestion.solutionImages
+                            .filter((img) => img !== viewingQuestion.solutionImageUrl)
+                            .map((imgUrl, i) => (
+                              <img
+                                key={i}
+                                src={imgUrl}
+                                alt={`Solution Diagram ${i + 2}`}
+                                className="max-h-64 object-contain rounded-lg"
+                              />
+                            ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Footer Actions */}
+                  <div className="flex items-center justify-between pt-4 border-t border-indigo-900/60 flex-wrap gap-2">
+                    <button
+                      onClick={() => handleToggleStatus(viewingQuestion)}
+                      className="px-4 py-2 rounded-xl text-xs font-bold bg-indigo-950 border border-indigo-800 text-slate-300 hover:text-white cursor-pointer"
+                    >
+                      Status: {(viewingQuestion as any).status === 'Draft' ? 'Draft (Click to Publish)' : 'Published (Click to Draft)'}
+                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          setEditingQuestion(viewingQuestion);
+                          setViewingQuestion(null);
+                        }}
+                        className="px-4 py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-slate-950 cursor-pointer flex items-center gap-1.5"
+                      >
+                        <Edit2 className="w-3.5 h-3.5" />
+                        <span>Edit Question</span>
+                      </button>
+                      <button
+                        onClick={() => setViewingQuestion(null)}
+                        className="px-5 py-2 rounded-xl text-xs font-bold bg-indigo-900 hover:bg-indigo-800 text-white cursor-pointer"
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Modal 2: Edit Question Modal */}
+            {editingQuestion && (
+              <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+                <form
+                  onSubmit={handleSaveQuestionEdits}
+                  className="max-w-3xl w-full max-h-[90vh] overflow-y-auto bg-[#0d0f2a] border border-cyan-500/40 rounded-3xl p-6 sm:p-8 shadow-2xl flex flex-col gap-4 text-slate-200 animate-in fade-in"
+                >
+                  <div className="flex items-center justify-between border-b border-indigo-900/60 pb-3">
+                    <h3 className="text-base font-black font-['Outfit'] text-cyan-300">
+                      Edit Question ({editingQuestion.id.slice(0, 8)}...)
+                    </h3>
+                    <button
+                      type="button"
+                      onClick={() => setEditingQuestion(null)}
+                      className="p-1 text-slate-400 hover:text-white cursor-pointer"
+                    >
+                      <X className="w-5 h-5" />
+                    </button>
+                  </div>
+
+                  {/* Metadata Row */}
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-300 block mb-1">Subject</label>
+                      <select
+                        value={editingQuestion.subject}
+                        onChange={(e) =>
+                          setEditingQuestion({ ...editingQuestion, subject: e.target.value as SubjectId })
+                        }
+                        className="w-full px-3 py-2 rounded-xl bg-indigo-950 border border-indigo-800 text-xs text-white"
+                      >
+                        <option>Physics</option>
+                        <option>Chemistry</option>
+                        <option>Mathematics</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-300 block mb-1">Exam Category</label>
+                      <select
+                        value={editingQuestion.examCategory}
+                        onChange={(e) =>
+                          setEditingQuestion({
+                            ...editingQuestion,
+                            examCategory: e.target.value as ExamCategory,
+                          })
+                        }
+                        className="w-full px-3 py-2 rounded-xl bg-indigo-950 border border-indigo-800 text-xs text-white"
+                      >
+                        <option>JEE Mains</option>
+                        <option>JEE Advanced</option>
+                        <option>PYQ</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-300 block mb-1">Level</label>
+                      <select
+                        value={editingQuestion.level}
+                        onChange={(e) =>
+                          setEditingQuestion({
+                            ...editingQuestion,
+                            level: e.target.value as QuestionLevel,
+                          })
+                        }
+                        className="w-full px-3 py-2 rounded-xl bg-indigo-950 border border-indigo-800 text-xs text-white"
+                      >
+                        <option>Level 1</option>
+                        <option>Level 2</option>
+                        <option>Level 3</option>
+                        <option>JEEVault 50 Special</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-300 block mb-1">Difficulty</label>
+                      <select
+                        value={editingQuestion.difficulty || 'Standard'}
+                        onChange={(e) =>
+                          setEditingQuestion({
+                            ...editingQuestion,
+                            difficulty: e.target.value as Difficulty,
+                          })
+                        }
+                        className="w-full px-3 py-2 rounded-xl bg-indigo-950 border border-indigo-800 text-xs text-white"
+                      >
+                        <option>Basic</option>
+                        <option>Standard</option>
+                        <option>Advanced</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Chapter */}
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-300 block mb-1">Chapter</label>
+                    <input
+                      type="text"
+                      required
+                      value={editingQuestion.chapter}
+                      onChange={(e) =>
+                        setEditingQuestion({ ...editingQuestion, chapter: e.target.value })
+                      }
+                      className="w-full px-3 py-2 rounded-xl bg-indigo-950 border border-indigo-800 text-xs text-white"
+                    />
+                  </div>
+
+                  {/* Question Statement */}
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-300 block mb-1">Question Statement</label>
+                    <textarea
+                      required
+                      rows={3}
+                      value={editingQuestion.questionText}
+                      onChange={(e) =>
+                        setEditingQuestion({ ...editingQuestion, questionText: e.target.value })
+                      }
+                      className="w-full p-3 rounded-xl bg-indigo-950 border border-indigo-800 text-xs text-white"
+                    />
+                  </div>
+
+                  {/* Options */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {editingQuestion.options.map((opt, i) => (
+                      <div key={i}>
+                        <label className="text-[11px] font-bold text-slate-300 block mb-1">
+                          Option {String.fromCharCode(65 + i)}
+                        </label>
+                        <input
+                          type="text"
+                          value={opt}
+                          onChange={(e) => {
+                            const newOpts = [...editingQuestion.options];
+                            newOpts[i] = e.target.value;
+                            setEditingQuestion({ ...editingQuestion, options: newOpts });
+                          }}
+                          className="w-full px-3 py-2 rounded-xl bg-indigo-950 border border-indigo-800 text-xs text-white"
+                        />
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Correct Option Index & Status */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-300 block mb-1">Correct Option</label>
+                      <select
+                        value={editingQuestion.correctOptionIndex}
+                        onChange={(e) =>
+                          setEditingQuestion({
+                            ...editingQuestion,
+                            correctOptionIndex: Number(e.target.value),
+                          })
+                        }
+                        className="w-full px-3 py-2 rounded-xl bg-indigo-950 border border-indigo-800 text-xs text-white"
+                      >
+                        {editingQuestion.options.map((_, i) => (
+                          <option key={i} value={i}>
+                            Option {String.fromCharCode(65 + i)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-300 block mb-1">Publishing Status</label>
+                      <select
+                        value={(editingQuestion as any).status || 'Published'}
+                        onChange={(e) =>
+                          setEditingQuestion({
+                            ...editingQuestion,
+                            status: e.target.value as any,
+                          })
+                        }
+                        className="w-full px-3 py-2 rounded-xl bg-indigo-950 border border-indigo-800 text-xs text-white"
+                      >
+                        <option value="Published">Published</option>
+                        <option value="Draft">Draft</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Formula & Solution */}
+                  <div>
+                    <label className="text-[11px] font-bold text-slate-300 block mb-1">
+                      Key Formula & Theory Summary
+                    </label>
+                    <input
+                      type="text"
+                      value={editingQuestion.keyFormula || ''}
+                      onChange={(e) =>
+                        setEditingQuestion({ ...editingQuestion, keyFormula: e.target.value })
+                      }
+                      className="w-full px-3 py-2 rounded-xl bg-indigo-950 border border-indigo-800 text-xs text-white mb-2"
+                    />
+                    <label className="text-[11px] font-bold text-slate-300 block mb-1">
+                      Detailed Stepwise Solution
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={editingQuestion.solutionText || ''}
+                      onChange={(e) =>
+                        setEditingQuestion({ ...editingQuestion, solutionText: e.target.value })
+                      }
+                      className="w-full p-3 rounded-xl bg-indigo-950 border border-indigo-800 text-xs text-white"
+                    />
+                  </div>
+
+                  {/* Diagram Image URLs */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-300 block mb-1">
+                        Question Diagram URL
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="https://..."
+                        value={editingQuestion.imageUrl || ''}
+                        onChange={(e) =>
+                          setEditingQuestion({ ...editingQuestion, imageUrl: e.target.value })
+                        }
+                        className="w-full px-3 py-2 rounded-xl bg-indigo-950 border border-indigo-800 text-xs text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-bold text-slate-300 block mb-1">
+                        Solution Diagram URL
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="https://..."
+                        value={editingQuestion.solutionImageUrl || ''}
+                        onChange={(e) =>
+                          setEditingQuestion({ ...editingQuestion, solutionImageUrl: e.target.value })
+                        }
+                        className="w-full px-3 py-2 rounded-xl bg-indigo-950 border border-indigo-800 text-xs text-white"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Action buttons */}
+                  <div className="flex justify-end gap-3 pt-3 border-t border-indigo-900/60">
+                    <button
+                      type="button"
+                      onClick={() => setEditingQuestion(null)}
+                      className="px-4 py-2 rounded-xl text-xs text-slate-400 hover:text-white"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-6 py-2.5 rounded-xl bg-cyan-400 hover:bg-cyan-300 text-slate-950 font-black text-xs uppercase tracking-wider"
+                    >
+                      Save Changes to Vault
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+
+            {/* Modal 3: Delete Confirmation Dialog */}
+            {deleteConfirmQId && (
+              <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4">
+                <div className="max-w-md w-full bg-[#0d0f2a] border border-red-500/50 rounded-3xl p-6 shadow-2xl flex flex-col gap-4 text-slate-200 animate-in fade-in">
+                  <div className="flex items-center gap-3 text-red-400">
+                    <AlertTriangle className="w-6 h-6 shrink-0" />
+                    <h3 className="text-base font-black font-['Outfit']">
+                      Confirm Question Deletion
+                    </h3>
+                  </div>
+                  <p className="text-xs text-slate-300 leading-relaxed">
+                    Are you sure you want to delete question{' '}
+                    <span className="font-mono text-cyan-300 font-bold">{deleteConfirmQId}</span>?
+                    This will remove the question permanently from the database.
+                  </p>
+                  <div className="flex justify-end gap-2.5 pt-2">
+                    <button
+                      onClick={() => setDeleteConfirmQId(null)}
+                      className="px-4 py-2 rounded-xl text-xs text-slate-400 hover:text-white bg-indigo-950 cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={handleConfirmDelete}
+                      className="px-4 py-2 rounded-xl text-xs font-bold bg-red-600 hover:bg-red-500 text-white cursor-pointer"
+                    >
+                      Yes, Delete Question
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

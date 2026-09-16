@@ -1,8 +1,13 @@
 import { createClient, SupabaseClient, User as SupabaseAuthUser } from '@supabase/supabase-js';
 import { UserProfile, Question, StudyPDF, SubjectId, ExamCategory, QuestionLevel, Difficulty } from '../types';
 
-const ENV_URL = (import.meta as any).env?.VITE_SUPABASE_URL || '';
-const ENV_KEY = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || '';
+// Default production Supabase credentials for JEEVault Vercel deployment
+const DEFAULT_SUPABASE_URL = 'https://bwdsdxppepngoenpoczz.supabase.co';
+const DEFAULT_SUPABASE_ANON_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ3ZHNkeHBwZXBuZ29lbnBvY3p6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1MzkzMDcsImV4cCI6MjEwNTExNTMwN30.zufFJKi0hLYuiUCA9ssBhYob9r8SOadJw8GvYKxObqg';
+
+const ENV_URL = (import.meta as any).env?.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
+const ENV_KEY = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
 
 // Local storage override keys
 const STORAGE_URL_KEY = 'jeevault_supabase_url';

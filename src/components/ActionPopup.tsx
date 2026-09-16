@@ -28,13 +28,21 @@ export const ActionPopup: React.FC = () => {
     if (q.subject !== safeSubject) return false;
     if (normalizeChapterName(q.chapter) !== normalizeChapterName(safeChapter)) return false;
     if (level && q.level !== level) return false;
-    if (isPyq && q.examCategory !== 'PYQ') return false;
+    if (isPyq) {
+      if (q.examCategory !== 'PYQ') return false;
+    } else if (category) {
+      // If user selected JEE Advanced or JEE Mains, match questions with that exam category
+      if (q.examCategory && q.examCategory !== category) return false;
+    }
     return true;
   });
 
   // Chapter-wide questions if specific level has none
   const chapterQuestions = questions.filter(
-    (q) => q.subject === safeSubject && normalizeChapterName(q.chapter) === normalizeChapterName(safeChapter)
+    (q) =>
+      q.subject === safeSubject &&
+      normalizeChapterName(q.chapter) === normalizeChapterName(safeChapter) &&
+      (isPyq ? q.examCategory === 'PYQ' : (!category || !q.examCategory || q.examCategory === category))
   );
 
   const sessionQuestions = filteredQuestions.length > 0 
@@ -85,7 +93,7 @@ export const ActionPopup: React.FC = () => {
         <div className="text-center mb-6">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-900/60 border border-purple-400/30 text-[11px] font-mono font-bold text-cyan-300 uppercase tracking-wider mb-2">
             <Sparkles className="w-3.5 h-3.5 text-yellow-300" />
-            {isPyq ? 'Previous Year Questions' : level || category}
+            {isPyq ? 'Previous Year Questions' : `${category} • ${level || 'All Levels'}`}
           </div>
           <h3 className="text-2xl font-black font-['Outfit'] text-white">
             {chapter}

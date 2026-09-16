@@ -97,9 +97,16 @@ export const ChapterListPage: React.FC = () => {
         {/* Chapters Grid */}
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
           {filteredChapters.map((ch, idx) => {
-            const chQuestionsCount = questions.filter(
+            const chCategoryCount = questions.filter(
+              (q) =>
+                q.subject === activeSubject &&
+                normalizeChapterName(q.chapter) === normalizeChapterName(ch.name) &&
+                (isPyq ? q.examCategory === 'PYQ' : (!q.examCategory || q.examCategory === activeCategory))
+            ).length;
+            const chTotalCount = questions.filter(
               (q) => q.subject === activeSubject && normalizeChapterName(q.chapter) === normalizeChapterName(ch.name)
             ).length;
+            const chQuestionsCount = chCategoryCount > 0 ? chCategoryCount : chTotalCount;
             const chPdfsCount = pdfs.filter(
               (p) => p.subject === activeSubject && normalizeChapterName(p.chapter) === normalizeChapterName(ch.name)
             ).length;

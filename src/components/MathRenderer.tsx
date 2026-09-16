@@ -3,6 +3,7 @@ import katex from 'katex';
 
 interface MathRendererProps {
   text?: string;
+  content?: string;
   className?: string;
   block?: boolean;
 }
@@ -12,21 +13,24 @@ interface MathRendererProps {
  * Falls back cleanly to text if KaTeX encounters an unparsable segment.
  */
 export const MathRenderer: React.FC<MathRendererProps> = ({
-  text = '',
+  text,
+  content,
   className = '',
   block = false,
 }) => {
+  const actualText = text || content || '';
+
   const renderedContent = useMemo(() => {
-    if (!text) return null;
+    if (!actualText) return null;
 
     // Check if there is any LaTeX delimiter ($ or $$)
-    if (!text.includes('$')) {
-      return text;
+    if (!actualText.includes('$')) {
+      return actualText;
     }
 
     // Split by block ($$) and inline ($)
     const regex = /(\$\$[\s\S]+?\$\$|\$[\s\S]+?\$)/g;
-    const parts = text.split(regex);
+    const parts = actualText.split(regex);
 
     return parts.map((part, index) => {
       if (part.startsWith('$$') && part.endsWith('$$')) {

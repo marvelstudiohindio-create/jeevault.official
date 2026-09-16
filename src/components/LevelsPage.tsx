@@ -2,6 +2,7 @@ import React from 'react';
 import { useApp } from '../context/AppContext';
 import { QuestionLevel } from '../types';
 import { ArrowLeft, BarChart3, Target, Trophy, Shield, ArrowRight } from 'lucide-react';
+import { normalizeChapterName } from '../lib/supabase';
 
 interface LevelItem {
   id: QuestionLevel;
@@ -65,6 +66,7 @@ export const LevelsPage: React.FC = () => {
     setActiveLevel,
     setCurrentView,
     openActionPopup,
+    questions,
   } = useApp();
 
   const handleLevelSelect = (level: QuestionLevel) => {
@@ -121,23 +123,38 @@ export const LevelsPage: React.FC = () => {
 
       {/* 4 Clean Glassmorphic Cards */}
       <div className="w-full max-w-6xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 my-6 sm:my-8 z-10">
-        {LEVELS.map((lvl) => (
-          <article
-            key={lvl.id}
-            onClick={() => handleLevelSelect(lvl.id)}
-            className={`group relative h-[290px] sm:h-[310px] rounded-3xl p-6 flex flex-col justify-between items-center text-center cursor-pointer transition-all duration-300 backdrop-blur-xl border border-slate-800 bg-slate-900/80 hover:bg-slate-900/95 hover:-translate-y-1.5 shadow-xl hover:shadow-[0_15px_35px_-10px_${lvl.glowColor}] ${lvl.accentBorder}`}
-          >
-            {/* Gloss reflection */}
-            <div className="absolute top-0 inset-x-0 h-1/2 bg-gradient-to-b from-white/5 to-transparent pointer-events-none rounded-t-3xl" />
+        {LEVELS.map((lvl) => {
+          const lvlQCount = questions.filter(
+            (q) =>
+              q.subject === activeSubject &&
+              normalizeChapterName(q.chapter) === normalizeChapterName(activeChapter) &&
+              q.level === lvl.id &&
+              (!q.examCategory || q.examCategory === activeCategory)
+          ).length;
 
-            <div className="w-full flex justify-between items-center z-10">
-              <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400">
-                {lvl.trackNumber}
-              </span>
-              <span className="text-[10px] font-semibold text-cyan-300 bg-cyan-950/60 border border-cyan-400/20 px-2 py-0.5 rounded-full">
-                ACTIVE
-              </span>
-            </div>
+          return (
+            <article
+              key={lvl.id}
+              onClick={() => handleLevelSelect(lvl.id)}
+              className={`group relative h-[290px] sm:h-[310px] rounded-3xl p-6 flex flex-col justify-between items-center text-center cursor-pointer transition-all duration-300 backdrop-blur-xl border border-slate-800 bg-slate-900/80 hover:bg-slate-900/95 hover:-translate-y-1.5 shadow-xl hover:shadow-[0_15px_35px_-10px_${lvl.glowColor}] ${lvl.accentBorder}`}
+            >
+              {/* Gloss reflection */}
+              <div className="absolute top-0 inset-x-0 h-1/2 bg-gradient-to-b from-white/5 to-transparent pointer-events-none rounded-t-3xl" />
+
+              <div className="w-full flex justify-between items-center z-10">
+                <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-slate-400">
+                  {lvl.trackNumber}
+                </span>
+                <span
+                  className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
+                    lvlQCount > 0
+                      ? 'text-emerald-300 bg-emerald-950/70 border border-emerald-400/30'
+                      : 'text-cyan-300 bg-cyan-950/60 border border-cyan-400/20'
+                  }`}
+                >
+                  {lvlQCount > 0 ? `${lvlQCount} Qs` : 'ACTIVE'}
+                </span>
+              </div>
 
             {/* Icon */}
             <div className="w-14 h-14 rounded-2xl bg-slate-950/70 border border-slate-800 flex items-center justify-center group-hover:scale-105 transition-transform z-10 my-1">
@@ -170,7 +187,8 @@ export const LevelsPage: React.FC = () => {
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </article>
-        ))}
+        );
+      })}
       </div>
 
       {/* Bottom Hint */}
