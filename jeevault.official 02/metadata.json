@@ -1,0 +1,7 @@
+{
+  "name": "JEEVault",
+  "description": "Comprehensive JEE preparation web platform for JEE Mains & Advanced practice, PYQs, Level 1-3, Special 50, PDF viewer, progress analysis, and administrative control.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
