@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 460 200" width="100%" height="100%">
+  <defs>
+    <marker id="arrow-q3" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#38bdf8"/>
+    </marker>
+    <pattern id="hatch3" width="10" height="10" patternTransform="rotate(45 0 0)" patternUnits="userSpaceOnUse">
+      <line x1="0" y1="0" x2="0" y2="10" stroke="#475569" stroke-width="1.5" />
+    </pattern>
+  </defs>
+  <!-- Floor -->
+  <line x1="30" y1="150" x2="430" y2="150" stroke="#64748b" stroke-width="3"/>
+  <rect x="30" y="150" width="400" height="16" fill="url(#hatch3)" opacity="0.5"/>
+  <text x="230" y="180" fill="#94a3b8" font-size="12" font-family="sans-serif" text-anchor="middle">Smooth floor</text>
+
+  <!-- Block B (2 kg) -->
+  <rect x="80" y="95" width="220" height="55" rx="5" fill="#1e293b" stroke="#94a3b8" stroke-width="2"/>
+  <text x="230" y="128" fill="#f8fafc" font-size="15" font-family="sans-serif" font-weight="bold" text-anchor="middle">B (2 kg)</text>
+
+  <!-- Block A (1 kg) placed on B, left-aligned with 4 cm offset from front face -->
+  <rect x="80" y="45" width="110" height="50" rx="5" fill="#0f172a" stroke="#38bdf8" stroke-width="2"/>
+  <text x="135" y="75" fill="#38bdf8" font-size="15" font-family="sans-serif" font-weight="bold" text-anchor="middle">A (1 kg)</text>
+
+  <!-- Force F = 5 N on A -->
+  <line x1="190" y1="70" x2="265" y2="70" stroke="#38bdf8" stroke-width="3" marker-end="url(#arrow-q3)"/>
+  <text x="235" y="60" fill="#38bdf8" font-size="13" font-family="sans-serif" font-weight="bold">F = 5 N</text>
+
+  <!-- Offset dimension 4 cm -->
+  <line x1="190" y1="35" x2="300" y2="35" stroke="#facc15" stroke-width="1.5"/>
+  <line x1="190" y1="30" x2="190" y2="40" stroke="#facc15" stroke-width="1.5"/>
+  <line x1="300" y1="30" x2="300" y2="40" stroke="#facc15" stroke-width="1.5"/>
+  <text x="245" y="28" fill="#facc15" font-size="12" font-family="sans-serif" font-weight="bold" text-anchor="middle">s = 4 cm</text>
+
+  <!-- Rough interface label -->
+  <text x="135" y="110" fill="#f43f5e" font-size="11" font-family="sans-serif" text-anchor="middle">μ = 0.2</text>
+</svg>

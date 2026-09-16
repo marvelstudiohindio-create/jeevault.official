@@ -113,6 +113,18 @@ export function mapDbProfileToUser(row: any): UserProfile {
 }
 
 /**
+ * Normalize chapter names to handle variations like "&" vs "and", apostrophes, and spacing
+ */
+export function normalizeChapterName(name: string): string {
+  return (name || '')
+    .toLowerCase()
+    .replace(/&/g, 'and')
+    .replace(/['’]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
  * Map Supabase public.questions row to frontend Question
  */
 export function mapDbQuestionToQuestion(row: any): Question {
@@ -128,6 +140,94 @@ export function mapDbQuestionToQuestion(row: any): Question {
     }
   }
 
+  // Parse [meta: {...}] from key_formula if present
+  let rawFormula = row.key_formula || '';
+  let meta: any = null;
+  const metaMatch = rawFormula.match(/\[meta:\s*(\{[\s\S]*?\})\]/);
+  if (metaMatch) {
+    try {
+      meta = JSON.parse(metaMatch[1]);
+      rawFormula = rawFormula.replace(metaMatch[0], '').trim();
+    } catch (e) {
+      // Safe fallback
+    }
+  }
+
+  // Question Images: from column, or meta, or [image: ...] in question_text
+  let questionImages: string[] = [];
+  if (Array.isArray(row.question_images) && row.question_images.length > 0) {
+    questionImages = row.question_images;
+  } else if (typeof row.question_images === 'string' && row.question_images) {
+    try {
+      const parsed = JSON.parse(row.question_images);
+      questionImages = Array.isArray(parsed) ? parsed : [row.question_images];
+    } catch {
+      questionImages = [row.question_images];
+    }
+  } else if (meta?.qImages && Array.isArray(meta.qImages) && meta.qImages.length > 0) {
+    questionImages = meta.qImages;
+  }
+
+  // Also parse [image: url] in question_text and clean question_text
+  let questionText = row.question_text || '';
+  const imgRegex = /\[image:\s*(https?:\/\/[^\s\]]+)\]/gi;
+  let match: RegExpExecArray | null;
+  while ((match = imgRegex.exec(questionText)) !== null) {
+    if (!questionImages.includes(match[1])) {
+      questionImages.push(match[1]);
+    }
+  }
+  questionText = questionText.replace(imgRegex, '').trim();
+
+  // Solution Images: from column, or meta, or [solution_image: ...] in solution_text
+  let solutionImages: string[] = [];
+  if (Array.isArray(row.solution_images) && row.solution_images.length > 0) {
+    solutionImages = row.solution_images;
+  } else if (typeof row.solution_images === 'string' && row.solution_images) {
+    try {
+      const parsed = JSON.parse(row.solution_images);
+      solutionImages = Array.isArray(parsed) ? parsed : [row.solution_images];
+    } catch {
+      solutionImages = [row.solution_images];
+    }
+  } else if (meta?.solImages && Array.isArray(meta.solImages) && meta.solImages.length > 0) {
+    solutionImages = meta.solImages;
+  }
+
+  // Also parse [solution_image: url] in solution_text and clean solution_text
+  let solutionText = row.solution_text || '';
+  const solImgRegex = /\[solution_image:\s*(https?:\/\/[^\s\]]+)\]/gi;
+  while ((match = solImgRegex.exec(solutionText)) !== null) {
+    if (!solutionImages.includes(match[1])) {
+      solutionImages.push(match[1]);
+    }
+  }
+  solutionText = solutionText.replace(solImgRegex, '').trim();
+
+  // Question Type
+  const questionType = row.question_type || meta?.type || 'Single Correct';
+
+  // Paragraph Text
+  const paragraphText = row.paragraph_text || meta?.paragraphText || undefined;
+
+  // Correct Option Indices
+  let correctOptionIndices: number[] | undefined;
+  if (Array.isArray(row.correct_option_indices) && row.correct_option_indices.length > 0) {
+    correctOptionIndices = row.correct_option_indices;
+  } else if (meta?.indices && Array.isArray(meta.indices) && meta.indices.length > 0) {
+    correctOptionIndices = meta.indices;
+  }
+
+  // Correct Integer Answer
+  let correctIntegerAnswer: number | undefined;
+  if (typeof row.correct_integer_answer === 'number') {
+    correctIntegerAnswer = row.correct_integer_answer;
+  } else if (row.correct_integer_answer !== null && row.correct_integer_answer !== undefined) {
+    correctIntegerAnswer = Number(row.correct_integer_answer);
+  } else if (meta?.integerAnswer !== null && meta?.integerAnswer !== undefined) {
+    correctIntegerAnswer = Number(meta.integerAnswer);
+  }
+
   return {
     id: row.id,
     subject: row.subject as SubjectId,
@@ -137,17 +237,23 @@ export function mapDbQuestionToQuestion(row: any): Question {
     pyqYear: row.pyq_year || undefined,
     pyqSession: row.pyq_session || undefined,
     questionNumber: row.question_number || 1,
-    difficulty: (row.difficulty as Difficulty) || 'Standard',
-    questionText: row.question_text || '',
-    options: parsedOptions.length === 4 ? parsedOptions : [
-      parsedOptions[0] || 'Option A',
-      parsedOptions[1] || 'Option B',
-      parsedOptions[2] || 'Option C',
-      parsedOptions[3] || 'Option D',
-    ],
+    difficulty: (row.difficulty as Difficulty) || 'Advanced',
+    questionType: questionType as any,
+    paragraphText,
+    questionText,
+    questionImages: questionImages.length > 0 ? questionImages : undefined,
+    options: parsedOptions.length > 0 ? parsedOptions : (questionType === 'Integer Type' ? [] : [
+      'Option A',
+      'Option B',
+      'Option C',
+      'Option D',
+    ]),
     correctOptionIndex: typeof row.correct_option_index === 'number' ? row.correct_option_index : 0,
-    solutionText: row.solution_text || '',
-    keyFormula: row.key_formula || undefined,
+    correctOptionIndices,
+    correctIntegerAnswer,
+    solutionText,
+    solutionImages: solutionImages.length > 0 ? solutionImages : undefined,
+    keyFormula: rawFormula || undefined,
     createdAt: row.created_at || undefined,
   };
 }
@@ -155,19 +261,58 @@ export function mapDbQuestionToQuestion(row: any): Question {
 /**
  * Map frontend Question to Supabase public.questions column format
  */
-export function mapQuestionToDb(q: Partial<Question>): Record<string, any> {
+export function mapQuestionToDb(q: Partial<Question>, useExtendedColumns = false): Record<string, any> {
+  const qImages = q.questionImages || [];
+  const solImages = q.solutionImages || [];
+
+  let questionText = q.questionText || '';
+  for (const img of qImages) {
+    if (!questionText.includes(img)) {
+      questionText += `\n\n[image: ${img}]`;
+    }
+  }
+
+  let solutionText = q.solutionText || '';
+  for (const img of solImages) {
+    if (!solutionText.includes(img)) {
+      solutionText += `\n\n[solution_image: ${img}]`;
+    }
+  }
+
+  const metaObj: Record<string, any> = {};
+  if (q.questionType) metaObj.type = q.questionType;
+  if (q.correctOptionIndices && q.correctOptionIndices.length > 0) metaObj.indices = q.correctOptionIndices;
+  if (q.correctIntegerAnswer !== undefined && q.correctIntegerAnswer !== null) metaObj.integerAnswer = q.correctIntegerAnswer;
+  if (q.paragraphText) metaObj.paragraphText = q.paragraphText;
+  if (qImages.length > 0) metaObj.qImages = qImages;
+  if (solImages.length > 0) metaObj.solImages = solImages;
+
+  let keyFormula = q.keyFormula || '';
+  if (Object.keys(metaObj).length > 0) {
+    keyFormula = `${keyFormula}\n[meta: ${JSON.stringify(metaObj)}]`;
+  }
+
   const payload: Record<string, any> = {
     subject: q.subject,
     exam_category: q.examCategory,
     chapter: q.chapter,
     level: q.level,
     difficulty: q.difficulty || 'Standard',
-    question_text: q.questionText,
+    question_text: questionText,
     options: q.options || [],
     correct_option_index: q.correctOptionIndex ?? 0,
-    solution_text: q.solutionText || '',
-    key_formula: q.keyFormula || null,
+    solution_text: solutionText,
+    key_formula: keyFormula || null,
   };
+
+  if (useExtendedColumns) {
+    if (q.questionType) payload.question_type = q.questionType;
+    if (q.paragraphText) payload.paragraph_text = q.paragraphText;
+    if (qImages.length > 0) payload.question_images = qImages;
+    if (solImages.length > 0) payload.solution_images = solImages;
+    if (q.correctOptionIndices && q.correctOptionIndices.length > 0) payload.correct_option_indices = q.correctOptionIndices;
+    if (q.correctIntegerAnswer !== undefined && q.correctIntegerAnswer !== null) payload.correct_integer_answer = q.correctIntegerAnswer;
+  }
 
   if (q.id && !q.id.startsWith('q-temp-') && !q.id.startsWith('q-phy-') && !q.id.startsWith('q-math-') && !q.id.startsWith('q-chem-')) {
     payload.id = q.id;

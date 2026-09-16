@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { Question } from '../types';
+import { MathRenderer } from './MathRenderer';
 import {
   Bookmark,
   ChevronLeft,
@@ -16,6 +17,12 @@ import {
   RotateCcw,
   Sparkles,
   Award,
+  ZoomIn,
+  BookOpen,
+  CheckSquare,
+  Square,
+  Hash,
+  X,
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -35,6 +42,8 @@ export const AttemptPage: React.FC = () => {
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<string, number>>({});
+  const [multiAnswers, setMultiAnswers] = useState<Record<string, number[]>>({});
+  const [integerAnswers, setIntegerAnswers] = useState<Record<string, string>>({});
   const [checkedAnswers, setCheckedAnswers] = useState<Record<string, boolean>>({});
   const [showSolution, setShowSolution] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
@@ -42,6 +51,7 @@ export const AttemptPage: React.FC = () => {
   const [timerSeconds, setTimerSeconds] = useState(0);
   const [isTestSubmitted, setIsTestSubmitted] = useState(false);
   const [bookmarkFeedback, setBookmarkFeedback] = useState<string | null>(null);
+  const [zoomedImage, setZoomedImage] = useState<string | null>(null);
 
   // Timer tick
   useEffect(() => {
@@ -63,28 +73,83 @@ export const AttemptPage: React.FC = () => {
 
   const currentQ = questionsList[currentIndex];
   const isBookmarked = bookmarkedQuestionIds.includes(currentQ?.id);
-  const selectedOption = selectedAnswers[currentQ?.id];
   const isChecked = checkedAnswers[currentQ?.id] !== undefined;
-  const isCorrect = selectedOption === currentQ?.correctOptionIndex;
+
+  const isQuestionAnswered = (qId: string) => {
+    return (
+      selectedAnswers[qId] !== undefined ||
+      (multiAnswers[qId] && multiAnswers[qId].length > 0) ||
+      (integerAnswers[qId] !== undefined && integerAnswers[qId].trim() !== '')
+    );
+  };
+
+  const hasCurrentAnswer = currentQ
+    ? currentQ.questionType === 'Multiple Correct'
+      ? (multiAnswers[currentQ.id] && multiAnswers[currentQ.id].length > 0)
+      : currentQ.questionType === 'Integer Type'
+      ? (integerAnswers[currentQ.id] !== undefined && integerAnswers[currentQ.id].trim() !== '')
+      : selectedAnswers[currentQ.id] !== undefined
+    : false;
 
   const handleSelectOption = (optIdx: number) => {
-    setSelectedAnswers((prev) => ({
+    if (!currentQ || isChecked) return;
+    if (currentQ.questionType === 'Multiple Correct') {
+      setMultiAnswers((prev) => {
+        const currentList = prev[currentQ.id] || [];
+        const exists = currentList.includes(optIdx);
+        const updated = exists ? currentList.filter((idx) => idx !== optIdx) : [...currentList, optIdx];
+        return { ...prev, [currentQ.id]: updated };
+      });
+    } else {
+      setSelectedAnswers((prev) => ({
+        ...prev,
+        [currentQ.id]: optIdx,
+      }));
+    }
+  };
+
+  const handleIntegerChange = (val: string) => {
+    if (!currentQ || isChecked) return;
+    setIntegerAnswers((prev) => ({
       ...prev,
-      [currentQ.id]: optIdx,
+      [currentQ.id]: val,
     }));
   };
 
   const handleCheckAnswer = () => {
-    if (selectedOption === undefined) return;
-    const correct = selectedOption === currentQ.correctOptionIndex;
+    if (!currentQ || !hasCurrentAnswer) return;
+    const qType = currentQ.questionType || 'Single Correct';
+    let isAnsCorrect = false;
+
+    if (qType === 'Multiple Correct') {
+      const selected = (multiAnswers[currentQ.id] || []).slice().sort();
+      const expected = (currentQ.correctOptionIndices && currentQ.correctOptionIndices.length > 0
+        ? currentQ.correctOptionIndices
+        : [currentQ.correctOptionIndex]
+      ).slice().sort();
+      if (selected.length === 0) return;
+      isAnsCorrect = selected.length === expected.length && selected.every((v, i) => v === expected[i]);
+      recordAttempt(currentQ.id, selected[0] ?? 0, isAnsCorrect, timerSeconds);
+    } else if (qType === 'Integer Type') {
+      const rawVal = integerAnswers[currentQ.id]?.trim();
+      if (rawVal === undefined || rawVal === '') return;
+      const parsedVal = parseInt(rawVal, 10);
+      isAnsCorrect = parsedVal === currentQ.correctIntegerAnswer;
+      recordAttempt(currentQ.id, parsedVal, isAnsCorrect, timerSeconds);
+    } else {
+      const selected = selectedAnswers[currentQ.id];
+      if (selected === undefined) return;
+      isAnsCorrect = selected === currentQ.correctOptionIndex;
+      recordAttempt(currentQ.id, selected, isAnsCorrect, timerSeconds);
+    }
+
     setCheckedAnswers((prev) => ({
       ...prev,
-      [currentQ.id]: correct,
+      [currentQ.id]: isAnsCorrect,
     }));
     setShowSolution(true);
-    recordAttempt(currentQ.id, selectedOption, correct, timerSeconds);
 
-    if (correct) {
+    if (isAnsCorrect) {
       try {
         confetti({ particleCount: 35, spread: 60, origin: { y: 0.7 } });
       } catch (e) {
@@ -94,7 +159,18 @@ export const AttemptPage: React.FC = () => {
   };
 
   const handleClearResponse = () => {
+    if (!currentQ) return;
     setSelectedAnswers((prev) => {
+      const copy = { ...prev };
+      delete copy[currentQ.id];
+      return copy;
+    });
+    setMultiAnswers((prev) => {
+      const copy = { ...prev };
+      delete copy[currentQ.id];
+      return copy;
+    });
+    setIntegerAnswers((prev) => {
       const copy = { ...prev };
       delete copy[currentQ.id];
       return copy;
@@ -118,7 +194,7 @@ export const AttemptPage: React.FC = () => {
   };
 
   // Stats calculation
-  const totalAttempted = Object.keys(selectedAnswers).length;
+  const totalAttempted = questionsList.filter((q) => isQuestionAnswered(q.id)).length;
   const totalCorrect = Object.values(checkedAnswers).filter(Boolean).length;
   const totalIncorrect = Object.values(checkedAnswers).filter((v) => v === false).length;
 
@@ -225,18 +301,28 @@ export const AttemptPage: React.FC = () => {
       <div className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
         {/* Left Area: Question Details, Options, & Solution */}
         <div className="flex-1 p-4 sm:p-8 overflow-y-auto max-w-5xl mx-auto w-full">
-          {/* Question Card matching screenshot */}
+          {/* Question Card */}
           <div className="rounded-3xl bg-[#13153c]/85 border-2 border-indigo-900/60 p-6 sm:p-8 backdrop-blur-2xl shadow-2xl relative">
             {/* Top question badge bar */}
-            <div className="flex items-center justify-between border-b border-indigo-900/50 pb-4 mb-6">
-              <div className="flex items-center gap-2.5">
-                {/* Number Badge `45` */}
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-indigo-900/50 pb-4 mb-6">
+              <div className="flex flex-wrap items-center gap-2">
+                {/* Number Badge */}
                 <div className="w-10 h-10 rounded-xl bg-indigo-600/30 border border-indigo-500/40 flex items-center justify-center text-lg font-black text-white shadow-inner font-mono">
                   {currentQ?.questionNumber || currentIndex + 1}
                 </div>
-                {/* Difficulty Badge `MEDIUM` */}
+                {/* Difficulty / Level Badge */}
                 <span className="px-3 py-1 rounded-lg text-xs font-black uppercase tracking-wider bg-fuchsia-950/60 border border-fuchsia-500/40 text-fuchsia-300">
-                  {currentQ?.difficulty === 'Standard' ? 'MEDIUM' : currentQ?.difficulty}
+                  {currentQ?.level || currentQ?.difficulty || 'Level 3'}
+                </span>
+                {/* Question Type Badge */}
+                <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-indigo-950/80 border border-indigo-700/50 text-indigo-300">
+                  {currentQ?.questionType === 'Multiple Correct'
+                    ? 'One or More Correct'
+                    : currentQ?.questionType === 'Integer Type'
+                    ? 'Integer Type'
+                    : currentQ?.questionType === 'Comprehension'
+                    ? 'Comprehension'
+                    : 'Single Choice'}
                 </span>
                 {currentQ?.pyqYear && (
                   <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-cyan-950/60 border border-cyan-500/30 text-cyan-300">
@@ -285,54 +371,213 @@ export const AttemptPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Question Text */}
-            <div className="text-base sm:text-lg font-medium text-slate-100 leading-relaxed font-['Plus_Jakarta_Sans'] mb-8">
-              {currentQ?.questionText}
+            {/* Comprehension Passage (if question belongs to a passage) */}
+            {currentQ?.paragraphText && (
+              <div className="mb-6 p-4 sm:p-5 rounded-2xl bg-indigo-950/40 border border-cyan-500/30">
+                <div className="flex items-center gap-2 mb-2 text-cyan-300 text-xs font-black uppercase tracking-wider">
+                  <BookOpen className="w-4 h-4 text-cyan-400" />
+                  <span>Comprehension Passage</span>
+                </div>
+                <div className="text-sm sm:text-base text-slate-200 leading-relaxed">
+                  <MathRenderer content={currentQ.paragraphText} />
+                </div>
+              </div>
+            )}
+
+            {/* Question Text with LaTeX rendering */}
+            <div className="text-base sm:text-lg font-medium text-slate-100 leading-relaxed font-['Plus_Jakarta_Sans'] mb-6">
+              <MathRenderer content={currentQ?.questionText || ''} />
             </div>
 
-            {/* 4 Options matching screenshot with styled radio circles */}
-            <div className="flex flex-col gap-3.5 mb-8">
-              {currentQ?.options?.map((optionText, optIdx) => {
-                const optLetter = String.fromCharCode(65 + optIdx); // A, B, C, D
-                const isSelected = selectedOption === optIdx;
-                const isCorrectOption = optIdx === currentQ.correctOptionIndex;
-
-                let borderStyle = 'border-indigo-900/60 bg-indigo-950/30 hover:border-indigo-600/60';
-                let circleStyle = 'bg-indigo-950 border-indigo-700 text-indigo-300';
-
-                if (isChecked) {
-                  if (isCorrectOption) {
-                    borderStyle = 'border-cyan-400 bg-cyan-950/40 shadow-[0_0_20px_rgba(34,211,238,0.2)]';
-                    circleStyle = 'bg-cyan-400 text-slate-950 font-bold';
-                  } else if (isSelected && !isCorrectOption) {
-                    borderStyle = 'border-pink-500 bg-pink-950/40 shadow-[0_0_20px_rgba(236,72,153,0.2)]';
-                    circleStyle = 'bg-pink-500 text-white font-bold';
-                  }
-                } else if (isSelected) {
-                  borderStyle = 'border-cyan-400 bg-cyan-950/30 shadow-[0_0_20px_rgba(34,211,238,0.2)]';
-                  circleStyle = 'bg-cyan-400 text-slate-950 font-bold';
-                }
-
-                return (
+            {/* Question Diagram / Images */}
+            {((currentQ?.questionImages && currentQ.questionImages.length > 0) || currentQ?.imageUrl) && (
+              <div className="mb-8 flex flex-col gap-4 items-center">
+                {(currentQ.questionImages || (currentQ.imageUrl ? [currentQ.imageUrl] : [])).map((imgUrl, imgIdx) => (
                   <div
-                    key={optIdx}
-                    onClick={() => handleSelectOption(optIdx)}
-                    className={`flex items-center gap-4 p-4 rounded-2xl border-2 transition-all cursor-pointer ${borderStyle}`}
+                    key={imgIdx}
+                    onClick={() => setZoomedImage(imgUrl)}
+                    className="group relative max-w-xl w-full rounded-2xl border border-indigo-800/50 bg-[#0a0d22] p-2 overflow-hidden shadow-lg transition-all hover:border-cyan-400/60 cursor-zoom-in"
                   >
-                    <div
-                      className={`w-8 h-8 rounded-xl border flex items-center justify-center text-xs font-mono font-bold shrink-0 transition-colors ${circleStyle}`}
-                    >
-                      {optLetter}
+                    <img
+                      src={imgUrl}
+                      alt={`Question diagram ${imgIdx + 1}`}
+                      className="w-full h-auto max-h-[380px] object-contain rounded-xl mx-auto"
+                      loading="lazy"
+                    />
+                    <div className="absolute bottom-3 right-3 flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-950/80 text-[11px] font-mono text-cyan-300 opacity-80 group-hover:opacity-100 transition-opacity">
+                      <ZoomIn className="w-3.5 h-3.5" />
+                      <span>Click to enlarge</span>
                     </div>
-                    <span className="text-sm sm:text-base font-semibold text-slate-200">
-                      {optionText}
-                    </span>
                   </div>
-                );
-              })}
-            </div>
+                ))}
+              </div>
+            )}
 
-            {/* Bottom Actions Bar matching reference */}
+            {/* OPTIONS / INPUT ACCORDING TO QUESTION TYPE */}
+            {currentQ?.questionType === 'Integer Type' ? (
+              /* Integer Type Input */
+              <div className="mb-8 p-6 rounded-2xl bg-indigo-950/30 border border-indigo-800/50">
+                <div className="flex items-center gap-2 mb-3 text-xs font-black uppercase tracking-wider text-cyan-300">
+                  <Hash className="w-4 h-4 text-cyan-400" />
+                  <span>Enter Numerical / Integer Answer</span>
+                </div>
+                <div className="flex flex-col sm:flex-row items-center gap-4">
+                  <input
+                    type="number"
+                    disabled={isChecked}
+                    value={integerAnswers[currentQ?.id] || ''}
+                    onChange={(e) => handleIntegerChange(e.target.value)}
+                    placeholder="e.g. 5"
+                    className="w-full sm:w-48 text-2xl font-mono font-bold text-center px-4 py-3 rounded-xl bg-indigo-950/80 border-2 border-cyan-500/40 text-cyan-200 focus:outline-none focus:border-cyan-400 focus:ring-2 focus:ring-cyan-400/20 disabled:opacity-60"
+                  />
+                  {isChecked && (
+                    <div className="flex items-center gap-2">
+                      {parseInt(integerAnswers[currentQ.id] || '', 10) === currentQ.correctIntegerAnswer ? (
+                        <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-400 bg-emerald-950/50 border border-emerald-500/40 px-3 py-1.5 rounded-lg">
+                          <CheckCircle2 className="w-4 h-4" /> Correct Answer
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1.5 text-xs font-bold text-pink-400 bg-pink-950/50 border border-pink-500/40 px-3 py-1.5 rounded-lg">
+                          <XCircle className="w-4 h-4" /> Incorrect (Answer: {currentQ.correctIntegerAnswer})
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Quick Touch Keypad for Integer Input */}
+                {!isChecked && (
+                  <div className="mt-4 pt-4 border-t border-indigo-900/40">
+                    <div className="text-[11px] font-semibold text-slate-400 mb-2">Keypad:</div>
+                    <div className="grid grid-cols-6 sm:grid-cols-12 gap-1.5 max-w-md">
+                      {['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'].map((digit) => (
+                        <button
+                          key={digit}
+                          onClick={() => {
+                            const cur = integerAnswers[currentQ?.id] || '';
+                            handleIntegerChange(cur + digit);
+                          }}
+                          className="py-2 rounded-lg bg-indigo-900/50 hover:bg-indigo-800 text-sm font-mono font-bold text-slate-200 border border-indigo-700/40 cursor-pointer"
+                        >
+                          {digit}
+                        </button>
+                      ))}
+                      <button
+                        onClick={() => {
+                          const cur = integerAnswers[currentQ?.id] || '';
+                          handleIntegerChange(cur.slice(0, -1));
+                        }}
+                        className="py-2 px-1 rounded-lg bg-indigo-900/50 hover:bg-indigo-800 text-xs font-mono font-bold text-slate-300 border border-indigo-700/40 cursor-pointer col-span-2 sm:col-span-1"
+                        title="Backspace"
+                      >
+                        ⌫
+                      </button>
+                      <button
+                        onClick={() => handleIntegerChange('')}
+                        className="py-2 px-1 rounded-lg bg-pink-950/40 hover:bg-pink-900/40 text-xs font-mono font-bold text-pink-300 border border-pink-700/40 cursor-pointer col-span-2 sm:col-span-1"
+                        title="Clear"
+                      >
+                        C
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : currentQ?.questionType === 'Multiple Correct' ? (
+              /* Multiple Correct Choice Options */
+              <div className="flex flex-col gap-3.5 mb-8">
+                <div className="text-xs font-bold text-purple-300 mb-1 flex items-center gap-1.5">
+                  <CheckSquare className="w-3.5 h-3.5 text-fuchsia-400" />
+                  <span>Select one or more correct options:</span>
+                </div>
+                {currentQ?.options?.map((optionText, optIdx) => {
+                  const optLetter = String.fromCharCode(65 + optIdx);
+                  const currentSelectedList = multiAnswers[currentQ.id] || [];
+                  const isSelected = currentSelectedList.includes(optIdx);
+                  const correctIndices = currentQ.correctOptionIndices || [currentQ.correctOptionIndex];
+                  const isCorrectOption = correctIndices.includes(optIdx);
+
+                  let borderStyle = 'border-indigo-900/60 bg-indigo-950/30 hover:border-indigo-600/60';
+                  let checkIcon = <Square className="w-5 h-5 text-indigo-400" />;
+
+                  if (isChecked) {
+                    if (isCorrectOption && isSelected) {
+                      borderStyle = 'border-cyan-400 bg-cyan-950/40 shadow-[0_0_20px_rgba(34,211,238,0.2)]';
+                      checkIcon = <CheckSquare className="w-5 h-5 text-cyan-400" />;
+                    } else if (isCorrectOption && !isSelected) {
+                      borderStyle = 'border-emerald-500/70 bg-emerald-950/20';
+                      checkIcon = <CheckSquare className="w-5 h-5 text-emerald-400" />;
+                    } else if (isSelected && !isCorrectOption) {
+                      borderStyle = 'border-pink-500 bg-pink-950/40 shadow-[0_0_20px_rgba(236,72,153,0.2)]';
+                      checkIcon = <XCircle className="w-5 h-5 text-pink-400" />;
+                    }
+                  } else if (isSelected) {
+                    borderStyle = 'border-cyan-400 bg-cyan-950/30 shadow-[0_0_20px_rgba(34,211,238,0.2)]';
+                    checkIcon = <CheckSquare className="w-5 h-5 text-cyan-400" />;
+                  }
+
+                  return (
+                    <div
+                      key={optIdx}
+                      onClick={() => handleSelectOption(optIdx)}
+                      className={`flex items-start gap-4 p-4 rounded-2xl border-2 transition-all cursor-pointer ${borderStyle}`}
+                    >
+                      <div className="shrink-0 pt-0.5">{checkIcon}</div>
+                      <div className="w-7 h-7 rounded-lg border border-indigo-700 bg-indigo-950 flex items-center justify-center text-xs font-mono font-bold shrink-0 text-indigo-300">
+                        {optLetter}
+                      </div>
+                      <div className="text-sm sm:text-base font-semibold text-slate-200 flex-1 leading-snug pt-0.5">
+                        <MathRenderer content={optionText} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              /* Single Choice Options (Standard / Comprehension) */
+              <div className="flex flex-col gap-3.5 mb-8">
+                {currentQ?.options?.map((optionText, optIdx) => {
+                  const optLetter = String.fromCharCode(65 + optIdx);
+                  const isSelected = selectedAnswers[currentQ.id] === optIdx;
+                  const isCorrectOption = optIdx === currentQ.correctOptionIndex;
+
+                  let borderStyle = 'border-indigo-900/60 bg-indigo-950/30 hover:border-indigo-600/60';
+                  let circleStyle = 'bg-indigo-950 border-indigo-700 text-indigo-300';
+
+                  if (isChecked) {
+                    if (isCorrectOption) {
+                      borderStyle = 'border-cyan-400 bg-cyan-950/40 shadow-[0_0_20px_rgba(34,211,238,0.2)]';
+                      circleStyle = 'bg-cyan-400 text-slate-950 font-bold';
+                    } else if (isSelected && !isCorrectOption) {
+                      borderStyle = 'border-pink-500 bg-pink-950/40 shadow-[0_0_20px_rgba(236,72,153,0.2)]';
+                      circleStyle = 'bg-pink-500 text-white font-bold';
+                    }
+                  } else if (isSelected) {
+                    borderStyle = 'border-cyan-400 bg-cyan-950/30 shadow-[0_0_20px_rgba(34,211,238,0.2)]';
+                    circleStyle = 'bg-cyan-400 text-slate-950 font-bold';
+                  }
+
+                  return (
+                    <div
+                      key={optIdx}
+                      onClick={() => handleSelectOption(optIdx)}
+                      className={`flex items-start gap-4 p-4 rounded-2xl border-2 transition-all cursor-pointer ${borderStyle}`}
+                    >
+                      <div
+                        className={`w-8 h-8 rounded-xl border flex items-center justify-center text-xs font-mono font-bold shrink-0 transition-colors ${circleStyle}`}
+                      >
+                        {optLetter}
+                      </div>
+                      <div className="text-sm sm:text-base font-semibold text-slate-200 flex-1 leading-snug pt-1">
+                        <MathRenderer content={optionText} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Bottom Actions Bar */}
             <div className="flex flex-wrap items-center justify-between gap-3 pt-6 border-t border-indigo-900/60">
               <button
                 onClick={() => {
@@ -349,7 +594,7 @@ export const AttemptPage: React.FC = () => {
               </button>
 
               <div className="flex items-center gap-2">
-                {selectedOption !== undefined && !isChecked && (
+                {hasCurrentAnswer && !isChecked && (
                   <button
                     onClick={handleCheckAnswer}
                     id="attempt-btn-check"
@@ -362,17 +607,17 @@ export const AttemptPage: React.FC = () => {
                 {isChecked && (
                   <button
                     onClick={() => setShowSolution(!showSolution)}
-                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-cyan-950/60 border border-cyan-500/40 text-cyan-300 text-xs font-bold tracking-wider uppercase transition-all"
+                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-cyan-950/60 border border-cyan-500/40 text-cyan-300 text-xs font-bold tracking-wider uppercase transition-all cursor-pointer"
                   >
                     <Eye className="w-3.5 h-3.5" />
                     <span>{showSolution ? 'Hide Solution' : 'View Solution'}</span>
                   </button>
                 )}
 
-                {selectedOption !== undefined && (
+                {hasCurrentAnswer && (
                   <button
                     onClick={handleClearResponse}
-                    className="p-2.5 rounded-xl bg-indigo-950/60 border border-indigo-800/40 text-slate-400 hover:text-white"
+                    className="p-2.5 rounded-xl bg-indigo-950/60 border border-indigo-800/40 text-slate-400 hover:text-white cursor-pointer"
                     title="Clear response"
                   >
                     <RotateCcw className="w-4 h-4" />
@@ -418,27 +663,52 @@ export const AttemptPage: React.FC = () => {
             {/* Step-by-Step Solution Card */}
             {showSolution && (
               <div className="mt-8 p-6 rounded-2xl bg-[#0e102f] border-2 border-cyan-500/40 animate-in slide-in-from-bottom duration-300 shadow-xl">
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-4 pb-3 border-b border-indigo-900/50">
                   <div className="flex items-center gap-2">
                     <Sparkles className="w-4 h-4 text-cyan-400" />
                     <span className="text-xs font-black uppercase tracking-widest text-cyan-300 font-mono">
                       Stepwise Verified Solution
                     </span>
                   </div>
-                  <span className="text-xs font-bold text-emerald-400">
-                    Correct Option: {String.fromCharCode(65 + currentQ.correctOptionIndex)}
+                  <span className="text-xs font-bold text-emerald-400 bg-emerald-950/40 border border-emerald-500/30 px-3 py-1 rounded-lg">
+                    {currentQ.questionType === 'Integer Type'
+                      ? `Correct Integer: ${currentQ.correctIntegerAnswer}`
+                      : currentQ.questionType === 'Multiple Correct'
+                      ? `Correct Options: ${(currentQ.correctOptionIndices || [currentQ.correctOptionIndex])
+                          .map((i) => String.fromCharCode(65 + i))
+                          .join(', ')}`
+                      : `Correct Option: ${String.fromCharCode(65 + currentQ.correctOptionIndex)}`}
                   </span>
                 </div>
 
-                {currentQ.keyFormula && (
-                  <div className="p-3 rounded-xl bg-cyan-950/30 border border-cyan-500/20 text-xs font-mono text-cyan-200 mb-3">
-                    <span className="font-bold text-cyan-400">Core Formula: </span>
-                    {currentQ.keyFormula}
+                {/* Solution Diagram if available */}
+                {currentQ.solutionImages && currentQ.solutionImages.length > 0 && (
+                  <div className="mb-4 flex flex-col gap-3">
+                    {currentQ.solutionImages.map((sImg, sIdx) => (
+                      <div
+                        key={sIdx}
+                        onClick={() => setZoomedImage(sImg)}
+                        className="max-w-md rounded-xl border border-cyan-500/30 bg-[#090b20] p-2 cursor-zoom-in hover:border-cyan-400 transition-colors"
+                      >
+                        <img
+                          src={sImg}
+                          alt={`Solution diagram ${sIdx + 1}`}
+                          className="w-full h-auto max-h-[260px] object-contain rounded-lg mx-auto"
+                        />
+                      </div>
+                    ))}
                   </div>
                 )}
 
-                <div className="text-xs sm:text-sm text-slate-200 whitespace-pre-line leading-relaxed">
-                  {currentQ.solutionText}
+                {currentQ.keyFormula && (
+                  <div className="p-3 rounded-xl bg-cyan-950/30 border border-cyan-500/20 text-xs font-mono text-cyan-200 mb-4">
+                    <span className="font-bold text-cyan-400 block mb-1">Core Formula:</span>
+                    <MathRenderer content={currentQ.keyFormula} />
+                  </div>
+                )}
+
+                <div className="text-xs sm:text-sm text-slate-200 leading-relaxed">
+                  <MathRenderer content={currentQ.solutionText} />
                 </div>
               </div>
             )}
@@ -606,6 +876,37 @@ export const AttemptPage: React.FC = () => {
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-4 py-2.5 rounded-2xl bg-amber-400 text-slate-950 font-bold text-xs shadow-2xl shadow-amber-400/40 animate-in fade-in slide-in-from-bottom-3 duration-200">
           <Bookmark className="w-4 h-4 fill-slate-950" />
           <span>{bookmarkFeedback}</span>
+        </div>
+      )}
+
+      {/* Enlarged Diagram Lightbox Modal */}
+      {zoomedImage && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md cursor-pointer"
+          onClick={() => setZoomedImage(null)}
+        >
+          <div
+            className="relative max-w-4xl max-h-[90vh] bg-[#0c0e29] border border-cyan-500/40 rounded-3xl p-4 shadow-2xl overflow-hidden cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setZoomedImage(null)}
+              className="absolute top-4 right-4 p-2 rounded-xl bg-indigo-950/80 hover:bg-pink-950 text-slate-300 hover:text-pink-300 border border-indigo-700/50 transition-colors z-10 cursor-pointer"
+              title="Close image"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            <div className="p-2 flex items-center justify-center overflow-auto max-h-[80vh]">
+              <img
+                src={zoomedImage}
+                alt="Enlarged diagram"
+                className="max-w-full max-h-[75vh] object-contain rounded-xl"
+              />
+            </div>
+            <div className="text-center text-xs text-slate-400 mt-2 font-mono">
+              Detailed Diagram View • Click outside or ✕ to close
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 260" width="100%" height="100%">
+  <defs>
+    <marker id="arr-q10" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#38bdf8"/>
+    </marker>
+  </defs>
+  <!-- Incline triangle 37 degrees -->
+  <polygon points="40,210 380,210 380,50" fill="#1e293b" stroke="#64748b" stroke-width="2.5"/>
+  <text x="90" y="200" fill="#94a3b8" font-size="13" font-family="sans-serif">37°</text>
+
+  <!-- Group rotated along incline -->
+  <g transform="translate(40,210) rotate(-25.2)">
+    <!-- Force F from bottom -->
+    <line x1="30" y1="-20" x2="80" y2="-20" stroke="#4ade80" stroke-width="3" marker-end="url(#arr-q10)"/>
+    <text x="50" y="-30" fill="#4ade80" font-size="12" font-family="sans-serif" font-weight="bold">F</text>
+
+    <!-- Blocks 4, 3, 2, 1 in contact -->
+    <rect x="80" y="-35" width="45" height="35" fill="#334155" stroke="#38bdf8" stroke-width="1.5"/>
+    <text x="102" y="-12" fill="#fff" font-size="11" font-family="sans-serif" text-anchor="middle">4 kg</text>
+
+    <rect x="125" y="-35" width="40" height="35" fill="#334155" stroke="#38bdf8" stroke-width="1.5"/>
+    <text x="145" y="-12" fill="#fff" font-size="11" font-family="sans-serif" text-anchor="middle">3 kg</text>
+
+    <rect x="165" y="-35" width="35" height="35" fill="#334155" stroke="#38bdf8" stroke-width="1.5"/>
+    <text x="182" y="-12" fill="#fff" font-size="11" font-family="sans-serif" text-anchor="middle">2 kg</text>
+
+    <rect x="200" y="-35" width="30" height="35" fill="#334155" stroke="#38bdf8" stroke-width="1.5"/>
+    <text x="215" y="-12" fill="#fff" font-size="11" font-family="sans-serif" text-anchor="middle">1 kg</text>
+
+    <!-- 20 N opposing force -->
+    <line x1="280" y1="-20" x2="230" y2="-20" stroke="#f43f5e" stroke-width="3" marker-end="url(#arr-q10)"/>
+    <text x="250" y="-30" fill="#f43f5e" font-size="12" font-family="sans-serif" font-weight="bold">20 N</text>
+
+    <!-- Accel a = 5 m/s² -->
+    <text x="150" y="-50" fill="#facc15" font-size="12" font-family="sans-serif" font-weight="bold" text-anchor="middle">a = 5 m/s² ↗</text>
+  </g>
+</svg>

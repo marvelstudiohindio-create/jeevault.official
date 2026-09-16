@@ -16,7 +16,7 @@ export const ADMIN_USER: UserProfile = {
 export const CHAPTERS_DATA: Record<'Physics' | 'Mathematics' | 'Chemistry', ChapterInfo[]> = {
   Physics: [
     { id: 'phy-1', name: 'Kinematics & Motion in 1D/2D', subject: 'Physics', totalQuestions: 0, pyqCount: 0, special50Count: 0 },
-    { id: 'phy-2', name: "Newton's Laws of Motion & Friction", subject: 'Physics', totalQuestions: 0, pyqCount: 0, special50Count: 0 },
+    { id: 'phy-2', name: "Newton's Laws of Motion and Friction", subject: 'Physics', totalQuestions: 37, pyqCount: 0, special50Count: 0 },
     { id: 'phy-3', name: 'Work, Energy and Power', subject: 'Physics', totalQuestions: 0, pyqCount: 0, special50Count: 0 },
     { id: 'phy-4', name: 'Rotational Dynamics & COM', subject: 'Physics', totalQuestions: 0, pyqCount: 0, special50Count: 0 },
     { id: 'phy-5', name: 'Electrostatics & Electric Field', subject: 'Physics', totalQuestions: 0, pyqCount: 0, special50Count: 0 },
@@ -44,7 +44,7 @@ export const CHAPTERS_DATA: Record<'Physics' | 'Mathematics' | 'Chemistry', Chap
   ],
 };
 
-// All pre-seeded mock questions removed. Questions are populated exclusively by Admin upload/Supabase.
+// No hardcoded mock questions - questions are loaded dynamically from production Supabase database
 export const INITIAL_QUESTIONS: Question[] = [];
 
 // All pre-seeded mock study PDFs removed. PDFs are populated exclusively by Admin upload/Supabase.

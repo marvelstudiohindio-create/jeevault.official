@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { ArrowLeft, Search, Layers, ChevronRight, FileText, BookOpen } from 'lucide-react';
+import { normalizeChapterName } from '../lib/supabase';
 
 export const ChapterListPage: React.FC = () => {
   const {
@@ -97,10 +98,10 @@ export const ChapterListPage: React.FC = () => {
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mt-2">
           {filteredChapters.map((ch, idx) => {
             const chQuestionsCount = questions.filter(
-              (q) => q.subject === activeSubject && q.chapter.toLowerCase() === ch.name.toLowerCase()
+              (q) => q.subject === activeSubject && normalizeChapterName(q.chapter) === normalizeChapterName(ch.name)
             ).length;
             const chPdfsCount = pdfs.filter(
-              (p) => p.subject === activeSubject && p.chapter.toLowerCase() === ch.name.toLowerCase()
+              (p) => p.subject === activeSubject && normalizeChapterName(p.chapter) === normalizeChapterName(ch.name)
             ).length;
 
             return (

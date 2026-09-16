@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { PlayCircle, FileText, X, Sparkles, Lock, ArrowRight, AlertCircle } from 'lucide-react';
+import { normalizeChapterName } from '../lib/supabase';
 
 export const ActionPopup: React.FC = () => {
   const {
@@ -25,7 +26,7 @@ export const ActionPopup: React.FC = () => {
   // Filter matching questions strictly based on genuine questions added by admin
   const filteredQuestions = questions.filter((q) => {
     if (q.subject !== safeSubject) return false;
-    if ((q.chapter || '').toLowerCase() !== safeChapter.toLowerCase()) return false;
+    if (normalizeChapterName(q.chapter) !== normalizeChapterName(safeChapter)) return false;
     if (level && q.level !== level) return false;
     if (isPyq && q.examCategory !== 'PYQ') return false;
     return true;
@@ -33,7 +34,7 @@ export const ActionPopup: React.FC = () => {
 
   // Chapter-wide questions if specific level has none
   const chapterQuestions = questions.filter(
-    (q) => q.subject === safeSubject && (q.chapter || '').toLowerCase() === safeChapter.toLowerCase()
+    (q) => q.subject === safeSubject && normalizeChapterName(q.chapter) === normalizeChapterName(safeChapter)
   );
 
   const sessionQuestions = filteredQuestions.length > 0 
@@ -44,10 +45,10 @@ export const ActionPopup: React.FC = () => {
   const matchingPdf = pdfs.find(
     (p) =>
       p.subject === safeSubject &&
-      (p.chapter || '').toLowerCase() === safeChapter.toLowerCase() &&
+      normalizeChapterName(p.chapter) === normalizeChapterName(safeChapter) &&
       (!level || p.levelOrYear === level || p.examCategory === category)
   ) || pdfs.find(
-    (p) => p.subject === safeSubject && (p.chapter || '').toLowerCase() === safeChapter.toLowerCase()
+    (p) => p.subject === safeSubject && normalizeChapterName(p.chapter) === normalizeChapterName(safeChapter)
   ) || pdfs.find(
     (p) => p.subject === safeSubject
   );

@@ -32,14 +32,29 @@ CREATE TABLE IF NOT EXISTS public.questions (
   pyq_session TEXT,
   question_number INT NOT NULL DEFAULT 1,
   difficulty TEXT NOT NULL DEFAULT 'Standard' CHECK (difficulty IN ('Basic', 'Standard', 'Advanced')),
+  question_type TEXT DEFAULT 'Single Correct',
+  paragraph_text TEXT,
   question_text TEXT NOT NULL,
-  options JSONB NOT NULL DEFAULT '[]'::jsonb, -- Array of 4 string options
-  correct_option_index INT NOT NULL CHECK (correct_option_index BETWEEN 0 AND 3),
+  question_images JSONB DEFAULT '[]'::jsonb, -- Array of image URLs / paths
+  options JSONB NOT NULL DEFAULT '[]'::jsonb, -- Array of options
+  correct_option_index INT DEFAULT 0,
+  correct_option_indices JSONB DEFAULT '[]'::jsonb, -- For multiple correct questions
+  correct_integer_answer NUMERIC, -- For integer type questions
   solution_text TEXT NOT NULL,
+  solution_images JSONB DEFAULT '[]'::jsonb, -- Array of solution image URLs / paths
   key_formula TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   created_by UUID REFERENCES auth.users(id) ON DELETE SET NULL
 );
+
+-- Migration for existing instances:
+ALTER TABLE public.questions
+  ADD COLUMN IF NOT EXISTS question_type TEXT DEFAULT 'Single Correct',
+  ADD COLUMN IF NOT EXISTS paragraph_text TEXT,
+  ADD COLUMN IF NOT EXISTS question_images JSONB DEFAULT '[]'::jsonb,
+  ADD COLUMN IF NOT EXISTS solution_images JSONB DEFAULT '[]'::jsonb,
+  ADD COLUMN IF NOT EXISTS correct_option_indices JSONB DEFAULT '[]'::jsonb,
+  ADD COLUMN IF NOT EXISTS correct_integer_answer NUMERIC;
 
 -- 4. Question Attempts Table (User Performance Analytics)
 CREATE TABLE IF NOT EXISTS public.question_attempts (

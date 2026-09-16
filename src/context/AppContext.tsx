@@ -255,26 +255,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return CHAPTERS_DATA;
   });
 
-  // Questions State - Only genuine questions uploaded by Admin / Supabase
+  // Questions State - Loaded dynamically from production Supabase database
   const [questions, setQuestions] = useState<Question[]>(() => {
     const saved = localStorage.getItem(LOCAL_STORAGE_KEY_QUESTIONS);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          const genuine = parsed.filter(
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          // Discard stale cache with old mock IDs or local diagram paths
+          const hasStale = parsed.some(
             (q: Question) =>
-              !q.id?.startsWith('q-phy-') &&
-              !q.id?.startsWith('q-math-') &&
-              !q.id?.startsWith('q-chem-')
+              q.id?.startsWith('nlm-l3-') ||
+              q.id?.startsWith('q-phy-') ||
+              q.questionImages?.some((img) => img.startsWith('/diagrams'))
           );
-          return genuine;
+          if (!hasStale) {
+            return parsed;
+          }
         }
       } catch (e) {
         console.error(e);
       }
     }
-    return INITIAL_QUESTIONS;
+    return [];
   });
 
   // PDFs State - Only genuine study PDFs uploaded by Admin / Supabase
@@ -444,7 +447,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const { data, error } = await supabase
           .from('questions')
           .select('*')
-          .order('created_at', { ascending: false });
+          .order('question_number', { ascending: true });
         if (!error && data) {
           const dbQs = data.map(mapDbQuestionToQuestion);
           setQuestions(dbQs);
@@ -975,12 +978,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const supabase = getSupabase();
     if (supabase) {
       try {
-        const payload = mapQuestionToDb(qData);
-        const { data, error } = await supabase
+        let payload = mapQuestionToDb(qData, true);
+        let { data, error } = await supabase
           .from('questions')
           .insert(payload)
           .select()
           .single();
+
+        if (error && error.code === '42703') {
+          // Fallback if extended columns are not present in Supabase schema
+          payload = mapQuestionToDb(qData, false);
+          const fallbackRes = await supabase
+            .from('questions')
+            .insert(payload)
+            .select()
+            .single();
+          data = fallbackRes.data;
+          error = fallbackRes.error;
+        }
+
         if (!error && data) {
           const persistedQ = mapDbQuestionToQuestion(data);
           setQuestions((prev) => prev.map((q) => (q.id === tempId ? persistedQ : q)));
@@ -999,9 +1015,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const supabase = getSupabase();
     if (supabase) {
       try {
-        const payload = mapQuestionToDb(updates);
+        let payload = mapQuestionToDb(updates, true);
         delete payload.id;
-        await supabase.from('questions').update(payload).eq('id', id);
+        let { error } = await supabase.from('questions').update(payload).eq('id', id);
+        if (error && error.code === '42703') {
+          payload = mapQuestionToDb(updates, false);
+          delete payload.id;
+          const fallbackRes = await supabase.from('questions').update(payload).eq('id', id);
+          error = fallbackRes.error;
+        }
+        if (error) {
+          console.warn('Supabase question update warning:', error.message);
+        }
       } catch (err) {
         console.warn('Supabase question update exception:', err);
       }

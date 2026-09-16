@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 460 200" width="100%" height="100%">
+  <defs>
+    <marker id="arr-q19" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#38bdf8"/>
+    </marker>
+  </defs>
+  <!-- Floor -->
+  <line x1="30" y1="150" x2="430" y2="150" stroke="#64748b" stroke-width="3"/>
+  <text x="230" y="175" fill="#94a3b8" font-size="12" font-family="sans-serif" text-anchor="middle">Smooth horizontal floor</text>
+
+  <!-- 50 kg block -->
+  <rect x="90" y="90" width="220" height="60" rx="5" fill="#1e293b" stroke="#64748b" stroke-width="2.5"/>
+  <text x="200" y="125" fill="#f8fafc" font-size="15" font-family="sans-serif" font-weight="bold" text-anchor="middle">50 kg</text>
+  <line x1="310" y1="120" x2="380" y2="120" stroke="#38bdf8" stroke-width="3" marker-end="url(#arr-q19)"/>
+  <text x="345" y="110" fill="#38bdf8" font-size="13" font-family="sans-serif" font-weight="bold">100 N</text>
+
+  <!-- 10 kg block on top -->
+  <rect x="140" y="45" width="110" height="45" rx="5" fill="#0f172a" stroke="#38bdf8" stroke-width="2"/>
+  <text x="195" y="73" fill="#38bdf8" font-size="14" font-family="sans-serif" font-weight="bold" text-anchor="middle">10 kg</text>
+  <line x1="250" y1="68" x2="320" y2="68" stroke="#38bdf8" stroke-width="3" marker-end="url(#arr-q19)"/>
+  <text x="285" y="58" fill="#38bdf8" font-size="13" font-family="sans-serif" font-weight="bold">20 N</text>
+</svg>

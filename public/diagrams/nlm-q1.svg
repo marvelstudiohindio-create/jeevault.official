@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 540 180" width="100%" height="100%">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#38bdf8"/>
+    </marker>
+    <pattern id="hatch" width="10" height="10" patternTransform="rotate(45 0 0)" patternUnits="userSpaceOnUse">
+      <line x1="0" y1="0" x2="0" y2="10" stroke="#475569" stroke-width="1.5" />
+    </pattern>
+  </defs>
+  <!-- Background ground -->
+  <line x1="20" y1="130" x2="520" y2="130" stroke="#64748b" stroke-width="3" />
+  <rect x="20" y="130" width="500" height="20" fill="url(#hatch)" opacity="0.6"/>
+
+  <!-- Block A (10 kg) -->
+  <rect x="50" y="70" width="70" height="60" rx="6" fill="#1e293b" stroke="#38bdf8" stroke-width="2.5"/>
+  <text x="85" y="100" fill="#f8fafc" font-size="16" font-family="sans-serif" font-weight="bold" text-anchor="middle">A</text>
+  <text x="85" y="120" fill="#94a3b8" font-size="12" font-family="sans-serif" text-anchor="middle">10 kg</text>
+
+  <!-- String 1: A to B -->
+  <line x1="120" y1="100" x2="190" y2="100" stroke="#cbd5e1" stroke-width="3"/>
+  <text x="155" y="90" fill="#38bdf8" font-size="14" font-family="sans-serif" font-weight="bold" text-anchor="middle">T₁</text>
+
+  <!-- Block B (20 kg) -->
+  <rect x="190" y="60" width="80" height="70" rx="6" fill="#1e293b" stroke="#38bdf8" stroke-width="2.5"/>
+  <text x="230" y="95" fill="#f8fafc" font-size="16" font-family="sans-serif" font-weight="bold" text-anchor="middle">B</text>
+  <text x="230" y="118" fill="#94a3b8" font-size="12" font-family="sans-serif" text-anchor="middle">20 kg</text>
+
+  <!-- String 2: B to C -->
+  <line x1="270" y1="100" x2="340" y2="100" stroke="#cbd5e1" stroke-width="3"/>
+  <text x="305" y="90" fill="#38bdf8" font-size="14" font-family="sans-serif" font-weight="bold" text-anchor="middle">T₂</text>
+
+  <!-- Block C (30 kg) -->
+  <rect x="340" y="50" width="90" height="80" rx="6" fill="#1e293b" stroke="#38bdf8" stroke-width="2.5"/>
+  <text x="385" y="90" fill="#f8fafc" font-size="16" font-family="sans-serif" font-weight="bold" text-anchor="middle">C</text>
+  <text x="385" y="115" fill="#94a3b8" font-size="12" font-family="sans-serif" text-anchor="middle">30 kg</text>
+
+  <!-- Pulling Force F -->
+  <line x1="430" y1="95" x2="500" y2="95" stroke="#38bdf8" stroke-width="3.5" marker-end="url(#arrow)"/>
+  <text x="470" y="80" fill="#38bdf8" font-size="14" font-family="sans-serif" font-weight="bold" text-anchor="middle">F = 60 N</text>
+  <text x="270" y="168" fill="#94a3b8" font-size="13" font-family="sans-serif" text-anchor="middle">Smooth horizontal surface</text>
+</svg>

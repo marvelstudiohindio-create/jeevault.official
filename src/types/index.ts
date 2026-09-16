@@ -28,6 +28,13 @@ export interface QuestionOption {
   text: string;
 }
 
+export type QuestionType =
+  | 'Single Correct'
+  | 'Multiple Correct'
+  | 'Integer Type'
+  | 'Comprehension'
+  | 'Numerical';
+
 export interface Question {
   id: string;
   subject: SubjectId;
@@ -38,10 +45,17 @@ export interface Question {
   pyqSession?: string;
   questionNumber: number;
   difficulty: Difficulty;
+  questionType?: QuestionType;
+  paragraphText?: string;
   questionText: string;
-  options: string[]; // 4 options
-  correctOptionIndex: number; // 0, 1, 2, 3
+  questionImages?: string[];
+  imageUrl?: string;
+  options: string[]; // Options list (empty for integer/numerical type)
+  correctOptionIndex: number; // 0, 1, 2, 3 (for single correct)
+  correctOptionIndices?: number[]; // [0, 2] for multiple correct
+  correctIntegerAnswer?: number; // Integer answer (e.g. 5, 8, 3, 1)
   solutionText: string;
+  solutionImages?: string[];
   keyFormula?: string;
   createdAt?: string;
 }

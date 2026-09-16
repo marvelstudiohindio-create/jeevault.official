@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 280" width="100%" height="100%">
+  <!-- Table & Pulleys -->
+  <line x1="30" y1="90" x2="260" y2="90" stroke="#64748b" stroke-width="3"/>
+
+  <!-- Block A -->
+  <rect x="60" y="50" width="65" height="40" rx="4" fill="#1e293b" stroke="#38bdf8" stroke-width="2"/>
+  <text x="92" y="75" fill="#fff" font-size="13" font-family="sans-serif" font-weight="bold" text-anchor="middle">A</text>
+  <text x="92" y="38" fill="#facc15" font-size="11" font-family="sans-serif" text-anchor="middle">v_A = 1 m/s ←, a_A = 2 m/s² →</text>
+
+  <!-- Movable & fixed pulleys -->
+  <circle cx="260" cy="90" r="12" fill="#334155" stroke="#38bdf8" stroke-width="2"/>
+  <circle cx="320" cy="180" r="14" fill="#334155" stroke="#a855f7" stroke-width="2"/>
+  <rect x="295" y="205" width="50" height="40" rx="4" fill="#1e293b" stroke="#a855f7" stroke-width="2"/>
+  <text x="320" y="230" fill="#fff" font-size="14" font-family="sans-serif" font-weight="bold" text-anchor="middle">B</text>
+
+  <!-- Strings -->
+  <line x1="125" y1="70" x2="260" y2="70" stroke="#cbd5e1" stroke-width="2"/>
+  <path d="M 260 70 L 308 180 L 332 90 L 332 180" fill="none" stroke="#cbd5e1" stroke-width="2"/>
+  <text x="220" y="265" fill="#38bdf8" font-size="12" font-family="sans-serif" text-anchor="middle">Find v_B and a_B (choose incorrect options)</text>
+</svg>

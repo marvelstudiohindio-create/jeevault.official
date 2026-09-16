@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 200" width="100%" height="100%">
+  <defs>
+    <marker id="arr-q24" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#38bdf8"/>
+    </marker>
+  </defs>
+  <!-- Floor -->
+  <line x1="30" y1="150" x2="410" y2="150" stroke="#64748b" stroke-width="3"/>
+
+  <!-- Plank (3 kg) -->
+  <rect x="80" y="105" width="240" height="45" rx="4" fill="#1e293b" stroke="#94a3b8" stroke-width="2"/>
+  <text x="200" y="133" fill="#fff" font-size="14" font-family="sans-serif" font-weight="bold" text-anchor="middle">Plank (3 kg)</text>
+
+  <!-- Block (1 kg) -->
+  <rect x="120" y="60" width="70" height="45" rx="4" fill="#0f172a" stroke="#38bdf8" stroke-width="2"/>
+  <text x="155" y="88" fill="#38bdf8" font-size="13" font-family="sans-serif" font-weight="bold" text-anchor="middle">1 kg</text>
+
+  <!-- Force F = 5t at 37 degrees -->
+  <line x1="190" y1="82" x2="260" y2="40" stroke="#38bdf8" stroke-width="3" marker-end="url(#arr-q24)"/>
+  <line x1="190" y1="82" x2="250" y2="82" stroke="#94a3b8" stroke-dasharray="3 3" stroke-width="1.5"/>
+  <text x="225" y="76" fill="#94a3b8" font-size="11" font-family="sans-serif">37°</text>
+  <text x="250" y="32" fill="#38bdf8" font-size="13" font-family="sans-serif" font-weight="bold">F = 5t</text>
+  <text x="155" y="118" fill="#f43f5e" font-size="10" font-family="sans-serif">μ = 0.5</text>
+</svg>

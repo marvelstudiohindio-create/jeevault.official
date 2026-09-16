@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 380" width="100%" height="100%">
+  <defs>
+    <pattern id="hatch2" width="10" height="10" patternTransform="rotate(45 0 0)" patternUnits="userSpaceOnUse">
+      <line x1="0" y1="0" x2="0" y2="10" stroke="#475569" stroke-width="1.5" />
+    </pattern>
+  </defs>
+  <!-- Ceiling -->
+  <line x1="70" y1="30" x2="270" y2="30" stroke="#64748b" stroke-width="3"/>
+  <rect x="70" y="15" width="200" height="15" fill="url(#hatch2)" opacity="0.6"/>
+
+  <!-- Pulley bracket -->
+  <line x1="170" y1="30" x2="170" y2="65" stroke="#94a3b8" stroke-width="4"/>
+  <circle cx="170" cy="80" r="26" fill="#334155" stroke="#38bdf8" stroke-width="3"/>
+  <circle cx="170" cy="80" r="5" fill="#f8fafc"/>
+
+  <!-- Left String & 2 kg block -->
+  <line x1="144" y1="80" x2="144" y2="180" stroke="#cbd5e1" stroke-width="2.5"/>
+  <rect x="114" y="180" width="60" height="50" rx="5" fill="#1e293b" stroke="#38bdf8" stroke-width="2"/>
+  <text x="144" y="210" fill="#f8fafc" font-size="15" font-family="sans-serif" font-weight="bold" text-anchor="middle">2 kg</text>
+
+  <!-- Right String to 1 kg block -->
+  <line x1="196" y1="80" x2="196" y2="140" stroke="#cbd5e1" stroke-width="2.5"/>
+  <rect x="171" y="140" width="50" height="42" rx="5" fill="#1e293b" stroke="#38bdf8" stroke-width="2"/>
+  <text x="196" y="166" fill="#f8fafc" font-size="14" font-family="sans-serif" font-weight="bold" text-anchor="middle">1 kg</text>
+
+  <!-- Spring connecting 1 kg and 3 kg -->
+  <path d="M 196 182 L 196 190 L 186 195 L 206 205 L 186 215 L 206 225 L 186 235 L 206 245 L 196 250 L 196 258" fill="none" stroke="#f59e0b" stroke-width="3" stroke-linecap="round"/>
+  <text x="235" y="222" fill="#f59e0b" font-size="12" font-family="sans-serif" font-weight="bold">k = 100 N/m</text>
+
+  <!-- 3 kg block below spring -->
+  <rect x="166" y="258" width="60" height="55" rx="5" fill="#1e293b" stroke="#38bdf8" stroke-width="2"/>
+  <text x="196" y="292" fill="#f8fafc" font-size="15" font-family="sans-serif" font-weight="bold" text-anchor="middle">3 kg</text>
+</svg>

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 250" width="100%" height="100%">
+  <!-- Incline -->
+  <polygon points="40,210 360,210 360,70" fill="#1e293b" stroke="#64748b" stroke-width="2.5"/>
+  <text x="90" y="200" fill="#94a3b8" font-size="13" font-family="sans-serif">θ</text>
+
+  <!-- Wedge B with horizontal top -->
+  <g transform="translate(160, 110)">
+    <polygon points="0,45 85,45 0,0" fill="#334155" stroke="#38bdf8" stroke-width="2"/>
+    <text x="25" y="35" fill="#fff" font-size="13" font-family="sans-serif" font-weight="bold">B (2m)</text>
+
+    <!-- Block A on top horizontal surface of B -->
+    <rect x="0" y="-30" width="45" height="30" rx="4" fill="#0f172a" stroke="#a855f7" stroke-width="2"/>
+    <text x="22" y="-10" fill="#fff" font-size="12" font-family="sans-serif" text-anchor="middle">A (m)</text>
+  </g>
+  <text x="200" y="235" fill="#94a3b8" font-size="12" font-family="sans-serif" text-anchor="middle">μ = √3 between A and B, plane smooth</text>
+</svg>

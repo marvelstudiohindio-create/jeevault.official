@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 380" width="100%" height="100%">
+  <defs>
+    <marker id="arr-q13" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#4ade80"/>
+    </marker>
+  </defs>
+  <!-- Floor -->
+  <line x1="40" y1="340" x2="320" y2="340" stroke="#64748b" stroke-width="3"/>
+
+  <!-- Pulley A with force F = 300 N upwards -->
+  <circle cx="170" cy="110" r="22" fill="#334155" stroke="#38bdf8" stroke-width="2.5"/>
+  <line x1="170" y1="110" x2="170" y2="50" stroke="#4ade80" stroke-width="3.5" marker-end="url(#arr-q13)"/>
+  <text x="170" y="40" fill="#4ade80" font-size="14" font-family="sans-serif" font-weight="bold" text-anchor="middle">F = 300 N</text>
+  <text x="135" y="115" fill="#38bdf8" font-size="13" font-family="sans-serif" font-weight="bold">A</text>
+
+  <!-- String on left of Pulley A anchored to floor -->
+  <line x1="148" y1="110" x2="148" y2="340" stroke="#cbd5e1" stroke-width="2.5"/>
+
+  <!-- String on right of Pulley A goes to center of Pulley B -->
+  <line x1="192" y1="110" x2="192" y2="200" stroke="#cbd5e1" stroke-width="2.5"/>
+
+  <!-- Pulley B -->
+  <circle cx="192" cy="216" r="16" fill="#334155" stroke="#a855f7" stroke-width="2"/>
+  <text x="220" y="220" fill="#a855f7" font-size="13" font-family="sans-serif" font-weight="bold">B</text>
+
+  <!-- Left string of B to m = 5 kg -->
+  <line x1="176" y1="216" x2="176" y2="270" stroke="#cbd5e1" stroke-width="2"/>
+  <rect x="156" y="270" width="40" height="40" rx="4" fill="#1e293b" stroke="#38bdf8" stroke-width="2"/>
+  <text x="176" y="295" fill="#f8fafc" font-size="13" font-family="sans-serif" font-weight="bold" text-anchor="middle">5 kg</text>
+
+  <!-- Right string of B to M = 10 kg resting on floor -->
+  <line x1="208" y1="216" x2="208" y2="295" stroke="#cbd5e1" stroke-width="2"/>
+  <rect x="188" y="295" width="48" height="45" rx="4" fill="#1e293b" stroke="#38bdf8" stroke-width="2"/>
+  <text x="212" y="322" fill="#f8fafc" font-size="13" font-family="sans-serif" font-weight="bold" text-anchor="middle">10 kg</text>
+</svg>

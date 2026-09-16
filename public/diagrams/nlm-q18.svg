@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 240" width="100%" height="100%">
+  <defs>
+    <marker id="arr-q18" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#facc15"/>
+    </marker>
+  </defs>
+  <!-- Floor -->
+  <line x1="40" y1="200" x2="360" y2="200" stroke="#64748b" stroke-width="3"/>
+  <!-- Triangular wedge B -->
+  <polygon points="100,200 320,200 100,80" fill="#1e293b" stroke="#38bdf8" stroke-width="2.5"/>
+  <text x="180" y="170" fill="#f8fafc" font-size="16" font-family="sans-serif" font-weight="bold">B</text>
+  <text x="270" y="190" fill="#94a3b8" font-size="13" font-family="sans-serif">θ</text>
+
+  <!-- Block A on incline -->
+  <g transform="translate(180, 125) rotate(-28)">
+    <rect x="-20" y="-30" width="40" height="30" rx="4" fill="#0f172a" stroke="#a855f7" stroke-width="2"/>
+    <text x="0" y="-10" fill="#fff" font-size="12" font-family="sans-serif" text-anchor="middle">A</text>
+  </g>
+
+  <!-- Accel vector a = 2 m/s² -->
+  <line x1="280" y1="120" x2="330" y2="120" stroke="#facc15" stroke-width="3" marker-end="url(#arr-q18)"/>
+  <text x="305" y="105" fill="#facc15" font-size="12" font-family="sans-serif" font-weight="bold">a = 2 m/s²</text>
+</svg>

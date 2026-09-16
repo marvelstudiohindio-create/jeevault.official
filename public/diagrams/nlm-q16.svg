@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 380 240" width="100%" height="100%">
+  <!-- Inclined surface -->
+  <polygon points="40,200 340,200 340,70" fill="#1e293b" stroke="#64748b" stroke-width="2.5"/>
+  <text x="80" y="190" fill="#94a3b8" font-size="13" font-family="sans-serif">α</text>
+
+  <!-- Plane view coordinate -->
+  <g transform="translate(190, 110)">
+    <rect x="-20" y="-18" width="40" height="36" rx="4" fill="#0f172a" stroke="#38bdf8" stroke-width="2"/>
+    <text x="0" y="5" fill="#fff" font-size="12" font-family="sans-serif" text-anchor="middle">m</text>
+    <!-- String line at angle beta -->
+    <line x1="0" y1="0" x2="90" y2="-50" stroke="#cbd5e1" stroke-width="2.5"/>
+    <line x1="0" y1="0" x2="80" y2="0" stroke="#94a3b8" stroke-dasharray="3 3" stroke-width="1.5"/>
+    <text x="45" y="-8" fill="#facc15" font-size="12" font-family="sans-serif">β</text>
+    <text x="75" y="-45" fill="#38bdf8" font-size="13" font-family="sans-serif" font-weight="bold">T</text>
+  </g>
+</svg>

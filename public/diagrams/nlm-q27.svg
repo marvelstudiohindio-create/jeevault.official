@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 440 200" width="100%" height="100%">
+  <defs>
+    <marker id="arr-q27" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="#38bdf8"/>
+    </marker>
+  </defs>
+  <!-- Floor -->
+  <line x1="30" y1="150" x2="410" y2="150" stroke="#64748b" stroke-width="3"/>
+  <text x="220" y="175" fill="#f43f5e" font-size="12" font-family="sans-serif" text-anchor="middle">Floor: μ₂ = 0.1</text>
+
+  <!-- 2 kg plank -->
+  <rect x="80" y="100" width="220" height="50" rx="5" fill="#1e293b" stroke="#94a3b8" stroke-width="2"/>
+  <text x="190" y="130" fill="#fff" font-size="15" font-family="sans-serif" font-weight="bold" text-anchor="middle">Plank (2 kg)</text>
+
+  <!-- 1 kg block on top -->
+  <rect x="130" y="50" width="90" height="50" rx="5" fill="#0f172a" stroke="#38bdf8" stroke-width="2"/>
+  <text x="175" y="80" fill="#38bdf8" font-size="14" font-family="sans-serif" font-weight="bold" text-anchor="middle">1 kg</text>
+  <text x="245" y="95" fill="#facc15" font-size="11" font-family="sans-serif">μ₁ = 0.4</text>
+
+  <!-- Force F -->
+  <line x1="220" y1="75" x2="295" y2="75" stroke="#38bdf8" stroke-width="3" marker-end="url(#arr-q27)"/>
+  <text x="260" y="65" fill="#38bdf8" font-size="14" font-family="sans-serif" font-weight="bold">F</text>
+</svg>
